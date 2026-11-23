@@ -14,7 +14,8 @@ export const sync = frame
  *
  * Use cancelFrame(callback) instead.
  */
-export const cancelSync = stepsOrder.reduce((acc, key) => {
-    acc[key] = (process: Process) => cancelFrame(process)
-    return acc
-}, {} as Record<string, (process: Process) => void>)
+export const cancelSync = /* @__PURE__ */ (() =>
+    stepsOrder.reduce((acc, key) => {
+        acc[key] = (process: Process) => cancelFrame(process)
+        return acc
+    }, {} as Record<string, (process: Process) => void>))()

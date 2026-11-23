@@ -81,6 +81,7 @@ function prepareNode(
     element: HTMLElement,
     transition?: Transition
 ): IProjectionNode {
+    registerLayoutProjection()
     let node = layoutNodes.get(element)
 
     if (!node) {
@@ -127,9 +128,20 @@ function createLayoutNode(
 
 /**
  * Let drag() create its nodes in the shared imperative tree, so drag
- * gestures and layout animations work together.
+ * gestures and layout animations work together. Called when a layout
+ * animation starts rather than at import, so this module has no side
+ * effects. Nodes drag() made before then are upgraded, parents first, so
+ * each finds its projection parent.
  */
-layoutProjection.create = createLayoutNode
+export function registerLayoutProjection() {
+    if (layoutProjection.create) return
+    layoutProjection.create = createLayoutNode
+    ;[...layoutProjection.pending]
+        .sort((a, b) =>
+            a.instance.compareDocumentPosition(b.instance) & 2 ? 1 : -1
+        )
+        .forEach((node) => node.upgrade(createLayoutNode(node.instance)))
+}
 
 /**
  * Get a projection node for an element, so motion/remix can measure and
@@ -140,6 +152,7 @@ layoutProjection.create = createLayoutNode
 export function acquireProjectionNode(
     element: HTMLElement
 ): [IProjectionNode, VoidFunction] {
+    registerLayoutProjection()
     const owned =
         layoutNodes.get(element) || visualElementStore.get(element)?.projection
 
@@ -290,6 +303,7 @@ export class LayoutAnimationBuilder {
         private updateDom: () => void | Promise<void>,
         private defaultOptions?: AnimationOptions
     ) {
+        registerLayoutProjection()
         this.readyPromise = new Promise<GroupAnimation>((resolve, reject) => {
             this.notifyReady = resolve
             this.rejectReady = reject

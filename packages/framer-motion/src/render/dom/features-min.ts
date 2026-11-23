@@ -7,7 +7,7 @@ import { createDomVisualElement } from "./create-visual-element"
 /**
  * @public
  */
-export const domMin: FeatureBundle = {
-    renderer: createDomVisualElement,
-    ...animations,
-}
+export const domMin: FeatureBundle = /* @__PURE__ */ Object.assign(
+    { renderer: createDomVisualElement },
+    animations
+)

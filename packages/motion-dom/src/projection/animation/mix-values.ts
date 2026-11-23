@@ -12,8 +12,6 @@ import { cornerRadiusProps } from "../../utils/border-radius"
 import { asNumber } from "../../value/utils/as-number"
 import { angleTransforms } from "../utils/has-transform"
 
-const numBorders = cornerRadiusProps.length
-
 const isPx = (value: AnyResolvedKeyframe) =>
     typeof value === "number" || px.test(value)
 
@@ -47,7 +45,7 @@ export function mixValues(
     /**
      * Mix border radius
      */
-    for (let i = 0; i < numBorders; i++) {
+    for (let i = 0; i < cornerRadiusProps.length; i++) {
         const borderLabel = cornerRadiusProps[i]
         let followRadius = getRadius(follow, borderLabel)
         let leadRadius = getRadius(lead, borderLabel)

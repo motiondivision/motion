@@ -201,4 +201,116 @@ describe("drag() and animateLayout()", () => {
 
         expect(values(element).x).toBe(60)
     })
+
+    test("upgrades a measurement-only drag node when animateLayout() runs later without top-level registration", async () => {
+        let isolatedDrag!: typeof drag
+        let isolatedAnimateLayout!: typeof animateLayout
+        let isolatedStore!: typeof visualElementStore
+        let isolatedProjection!: typeof import("../projection")
+        let isolatedUtils!: typeof import("./utils")
+
+        jest.isolateModules(() => {
+            // Importing LayoutAnimationBuilder must not register layoutProjection.create as a side effect
+            isolatedAnimateLayout =
+                require("../../../layout/animate-layout").animateLayout
+            isolatedProjection = require("../projection")
+            isolatedDrag = require("..").drag
+            isolatedStore = require("../../../render/store").visualElementStore
+            isolatedUtils = require("./utils")
+        })
+
+        expect(isolatedProjection.layoutProjection.create).toBeUndefined()
+
+        const element = isolatedUtils.createElement()
+        element.setAttribute("data-layout", "")
+        let left = 0
+        element.getBoundingClientRect = () =>
+            ({
+                left,
+                top: 0,
+                width: 100,
+                height: 100,
+                right: left + 100,
+                bottom: 100,
+                x: left,
+                y: 0,
+            } as DOMRect)
+
+        const stop = isolatedDrag(element, { momentum: false })
+        stops.push(stop)
+
+        const visualElement = isolatedStore.get(element)!
+        const measureNode = visualElement.projection!
+        expect((measureNode as any).upgrade).toBeDefined()
+
+        // Start a drag gesture before animateLayout() has ever run
+        const pointer = await isolatedUtils.gesture(element).to(40, 0)
+        expect(isolatedUtils.values(element).x).toBe(40)
+        expect(measureNode.isAnimationBlocked).toBe(true)
+
+        // Trigger animateLayout() mid-drag: upgrades the node and preserves drag coordination
+        await isolatedAnimateLayout(
+            () => {
+                left = 50
+            },
+            { duration: 0.05 }
+        )
+        await isolatedUtils.nextFrame()
+
+        expect(isolatedProjection.layoutProjection.create).toBeDefined()
+        const upgradedNode = visualElement.projection!
+        expect(upgradedNode).not.toBe(measureNode)
+        expect(upgradedNode.options.alwaysMeasureLayout).toBe(true)
+        expect(upgradedNode.isAnimationBlocked).toBe(true)
+
+        pointer.end()
+        await isolatedUtils.nextFrame()
+
+        // Dragging keeps working on the upgraded node
+        const afterPointer = await isolatedUtils.gesture(element).to(10, 0)
+        afterPointer.end()
+        await isolatedUtils.nextFrame()
+        expect(visualElement.projection).toBe(upgradedNode)
+
+        // drag() owns the upgraded node, so stopping it releases the node
+        stop()
+        expect(upgradedNode.instance).toBeUndefined()
+    })
+
+    test("keeps a dragged parent without data-layout in the layout tree when animateLayout() runs later", async () => {
+        let isolatedDrag!: typeof drag
+        let isolatedAnimateLayout!: typeof animateLayout
+        let builder!: typeof import("../../../layout/LayoutAnimationBuilder")
+        let isolatedStore!: typeof visualElementStore
+        let isolatedUtils!: typeof import("./utils")
+
+        jest.isolateModules(() => {
+            isolatedAnimateLayout =
+                require("../../../layout/animate-layout").animateLayout
+            builder = require("../../../layout/LayoutAnimationBuilder")
+            isolatedDrag = require("..").drag
+            isolatedStore = require("../../../render/store").visualElementStore
+            isolatedUtils = require("./utils")
+        })
+
+        const parent = isolatedUtils.createElement()
+        const child = document.createElement("div")
+        child.setAttribute("data-layout", "")
+        parent.appendChild(child)
+
+        const stop = isolatedDrag(parent, { momentum: false })
+
+        await isolatedAnimateLayout(parent, () => {}, { duration: 0.05 })
+        await isolatedUtils.nextFrame()
+
+        const parentNode = isolatedStore.get(parent)!.projection!
+        expect((parentNode as any).upgrade).toBeUndefined()
+        expect(builder.acquireProjectionNode(child)[0].parent).toBe(
+            parentNode
+        )
+
+        // Stopping drag() releases the node it owns, as before
+        stop()
+        expect(parentNode.instance).toBeUndefined()
+    })
 })

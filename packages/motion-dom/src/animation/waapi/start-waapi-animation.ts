@@ -10,11 +10,11 @@ export function startWaapiAnimation(
         delay = 0,
         duration = 300,
         repeat = 0,
-        repeatType = "loop",
+        repeatType,
         ease = "easeOut",
         times,
     }: ValueTransition = {},
-    pseudoElement: string | undefined = undefined
+    pseudoElement?: string
 ) {
     const keyframeOptions: PropertyIndexedKeyframes = {
         [valueName]: keyframes as string[],

@@ -181,7 +181,20 @@ export function PopChild({ children, isPresent, anchorX, anchorY, root, pop, pop
     useInsertionEffect(() => {
         const { width, height } = size.current
         const element = getElement()
-        if (isPresent || pop === false || !element || !width || !height) return
+        if (isPresent || !element) return
+
+        /**
+         * An exiting element can't be focused, clicked or read by
+         * assistive tech. Unless it already was, it stops being inert if
+         * it re-enters.
+         */
+        const wasInert = element.hasAttribute("inert")
+        const restoreInert = () => {
+            wasInert || element.removeAttribute("inert")
+        }
+        element.setAttribute("inert", "")
+
+        if (pop === false || !width || !height) return restoreInert
 
         element.dataset.motionPopId = id
 
@@ -236,6 +249,7 @@ export function PopChild({ children, isPresent, anchorX, anchorY, root, pop, pop
         })
 
         return () => {
+            restoreInert()
             element.removeAttribute("data-motion-pop-id")
             if (parent.contains(style)) {
                 parent.removeChild(style)

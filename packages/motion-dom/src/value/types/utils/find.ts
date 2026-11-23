@@ -6,7 +6,11 @@ import { testValueType } from "../test"
 /**
  * A list of all ValueTypes
  */
-const valueTypes = [...dimensionValueTypes, color, complex]
+const valueTypes = /* @__PURE__ */ (() => [
+    ...dimensionValueTypes,
+    color,
+    complex,
+])()
 
 /**
  * Tests a value against the list of ValueTypes

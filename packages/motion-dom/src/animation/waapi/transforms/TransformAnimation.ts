@@ -1,4 +1,5 @@
 import {
+    clamp,
     Easing,
     EasingFunction,
     easingDefinitionToFunction,
@@ -9,6 +10,7 @@ import { frame } from "../../../frameloop/frame"
 import { frameData } from "../../../frameloop/frame-data"
 import { time } from "../../../frameloop/sync-time"
 import {
+    buildTransform,
     isDefaultTransform,
     transformFunction,
 } from "../../../render/html/utils/build-transform"
@@ -29,10 +31,10 @@ import {
 } from "../../types"
 import { cubicBezierAsString } from "../easing/cubic-bezier"
 import { supportedWaapiEasing } from "../easing/supported"
-import { supportsWaapi } from "../supports/waapi"
+import { canAccelerateOptions, supportsWaapi } from "../supports/waapi"
 import { createStyleAnimation, setStyle } from "../../../effects/style/output"
 import { acceleratedValues } from "../utils/accelerated-values"
-import { needsMixer } from "../utils/needs-mixer"
+import { generateLinearEasing } from "../utils/linear"
 import { supportsLinearEasing } from "../../../utils/supports/linear-easing"
 import {
     addCompositorLayer,
@@ -41,8 +43,6 @@ import {
     TransformGroupHooks,
     transformGroups,
 } from "./groups"
-
-export const round = (value: number) => Math.round(value * 10000) / 10000
 
 /**
  * Independent transforms (x, y, scale, rotate etc) all write to the one
@@ -115,21 +115,30 @@ export interface TransformGroup extends TransformGroupHooks {
 type BuiltState = [number, number, boolean]
 
 /**
- * How an animation runs as WAAPI keyframes: when it starts, in document
- * time, how long one iteration takes at speed 1, how many times it
- * repeats, each keyframe's offset and value, and the easing of each span
- * between them.
+ * How an animation runs as WAAPI keyframes: [start, duration, iterations,
+ * direction, speed, offsets, values, easings].
  */
-interface NativeKeyframes {
-    start: number
-    duration: number
-    iterations: number
-    direction: PlaybackDirection
-    speed: number
-    offsets: number[]
-    values: AnyResolvedKeyframe[]
+type NativeKeyframes = [
+    start: number,
+    duration: number,
+    iterations: number,
+    direction: PlaybackDirection,
+    speed: number,
+    offsets: number[],
+    values: AnyResolvedKeyframe[],
     easings: string[]
-}
+]
+
+type Composed = [
+    start: number,
+    duration: number,
+    iterations: number,
+    direction: PlaybackDirection,
+    speed: number,
+    offsets: number[],
+    props: Record<string, AnyResolvedKeyframe[]>,
+    easing?: string[]
+]
 
 /**
  * Sample at the interruption sampling rate, up to a cap for long
@@ -142,15 +151,6 @@ const maxSamples = 50
  */
 const sampleStep = 16
 
-type Composed = Omit<NativeKeyframes, "values" | "easings"> & {
-    easing: string[]
-    /**
-     * The keyframes of each value: the composed transform, if it has
-     * transforms, and its other compositor values, like opacity.
-     */
-    props: Record<string, AnyResolvedKeyframe[]>
-}
-
 /**
  * If an outside write, or a seek the WAAPI animation can't follow,
  * happens again within this window, the group is being driven every
@@ -160,56 +160,44 @@ type Composed = Omit<NativeKeyframes, "values" | "easings"> & {
 const churnWindow = 100
 
 /**
- * Named easings that are the same cubic-bezier in JS and CSS.
- */
-const nativeEasings = new Set(["linear", "easeIn", "easeOut", "easeInOut"])
-
-/**
  * The last trace of each easing WAAPI can't run into linear(), with its
  * number of samples, so the elements that share an easing and duration
  * trace it once.
  */
 const traced = new WeakMap<EasingFunction, [number, string]>()
 
-const toLinear = (progressAt: (p: number) => number, samples: number) =>
-    "linear(" +
-    defaultOffset(Array(samples + 1)).map(
-        (p) => round(progressAt(p)) + " " + round(p * 100) + "%"
-    ) +
-    ")"
-
 const trace = (ease: EasingFunction, samples: number) => {
     let last = traced.get(ease)
     if (last?.[0] !== samples) {
-        last = [samples, toLinear(ease, samples)]
-        traced.set(ease, last)
+        traced.set(
+            ease,
+            (last = [samples, generateLinearEasing(ease, samples + 1, 1)])
+        )
     }
     return last[1]
 }
 
 /**
- * How many samples trace an easing over a duration.
- */
-const countSamples = (duration: number) =>
-    Math.min(maxSamples, Math.max(2, Math.ceil(duration / sampleDelta)))
-
-/**
- * An easing as WAAPI runs it: a native one by name, a bezier by its
+ * An easing as WAAPI runs it: a native one by name (excluding CSS
+ * cubic-bezier approximations of JS math easings), a bezier by its
  * values, and anything else traced into linear().
  */
-const easingAsString = (ease: Easing, samples: number) =>
-    isBezierDefinition(ease)
-        ? cubicBezierAsString(ease)
-        : nativeEasings.has(ease as string)
-        ? supportedWaapiEasing[ease as "linear"]
+const easingAsString = (ease: Easing, samples: number) => {
+    if (isBezierDefinition(ease)) return cubicBezierAsString(ease)
+    const native =
+        typeof ease === "string" &&
+        supportedWaapiEasing[ease as keyof typeof supportedWaapiEasing]
+    return native && native[0] !== "c"
+        ? native
         : trace(easingDefinitionToFunction(ease), samples)
+}
 
 const byTime = (a: number, b: number) => a - b
 
 const getOwner = (options: ValueAnimationOptions<any>) =>
     options.motionValue!.owner as TransformOwner
 
-export const getGroup = (element: Element) =>
+const getGroup = (element: Element) =>
     transformGroups.get(element) as TransformGroup | undefined
 
 /**
@@ -217,6 +205,20 @@ export const getGroup = (element: Element) =>
  */
 const hasEnded = ({ state }: TransformMember) =>
     state === "idle" || state === "finished"
+
+/**
+ * Whether a track is held (paused or speed 0) and not on a native scroll
+ * timeline.
+ */
+const isHeld = (track: TransformMember) =>
+    !track.scrollTimeline && (track.parent.holdTime !== null || !track.speed)
+
+/**
+ * When a track stops moving, in document time (Infinity if it repeats forever).
+ */
+const endTime = (track: TransformMember) =>
+    track.startTime! +
+    ((track.options.delay || 0) + track.totalDuration) / track.speed
 
 /**
  * A motion value holds where an animation left it. A value that starts
@@ -229,21 +231,17 @@ const read = (owner: TransformOwner, key: string) => {
 }
 
 /**
- * Whether this animation should join its element's transform group.
- * Animations that can't be accelerated still join, so the group knows
- * to stay on the main thread while they run. Browsers without linear()
- * easing stay on the main thread.
+ * Build a transform keyframe string from values in transformPropOrder.
+ * Every key is written, even at its default, so each keyframe has the
+ * same list of functions and the browser interpolates them one by one.
  */
-const canGroupTransform = ({ name, motionValue }: ValueAnimationOptions<any>) =>
-    name &&
-    name !== "pathRotation" &&
-    transformProps.has(name) &&
-    canGroup(motionValue)
-
-const canGroup = (motionValue?: MotionValue) =>
-    motionValue?.owner?.current instanceof HTMLElement &&
-    supportsWaapi() &&
-    supportsLinearEasing()
+const toTransform = (values: ResolvedValues) => {
+    let transform = ""
+    for (const key in values) {
+        transform += transformFunction(key, values[key]) + " "
+    }
+    return transform || "none"
+}
 
 /**
  * Whether a value of an animate() call joins its element's group: its
@@ -252,30 +250,24 @@ const canGroup = (motionValue?: MotionValue) =>
  * Alone, opacity is quicker to start on an animation of its own.
  */
 export const canGroupValue = (
-    options: ValueAnimationOptions<any>,
+    name: string,
+    motionValue?: MotionValue,
     composes?: boolean
 ) =>
-    canGroupTransform(options) ||
-    (composes &&
-        options.name !== "transform" &&
-        acceleratedValues.has(options.name!) &&
-        canGroup(options.motionValue))
+    Boolean(
+        ((name !== "pathRotation" && transformProps.has(name)) ||
+            (composes &&
+                name !== "transform" &&
+                acceleratedValues.has(name))) &&
+            motionValue?.owner?.current instanceof HTMLElement &&
+            supportsWaapi() &&
+            supportsLinearEasing()
+    )
 
 export function canAccelerateTransform(options: ValueAnimationOptions<any>) {
     const owner = getOwner(options)
-    const { onUpdate, transformTemplate } = owner.getProps()
 
     return (
-        /**
-         * onUpdate needs every value, every frame.
-         */
-        !onUpdate &&
-        !options.hasOnUpdate &&
-        /**
-         * transformTemplate could output anything.
-         */
-        !transformTemplate &&
-        options.type !== "inertia" &&
         /**
          * A literal transform, or pathRotation, replaces or adds to the
          * transform we'd build. styleEffect builds its own as "none".
@@ -287,10 +279,10 @@ export function canAccelerateTransform(options: ValueAnimationOptions<any>) {
          */
         !owner.projection?.isProjecting() &&
         /**
-         * A mixer that blends these values makes them every frame. It's
-         * asked last, as it's user code.
+         * onUpdate, transformTemplate, inertia and custom mixers stay on
+         * the main thread. Mixer is asked last, as it's user code.
          */
-        !needsMixer(options)
+        canAccelerateOptions(options, true)
     )
 }
 
@@ -300,20 +292,24 @@ export function canAccelerateTransform(options: ValueAnimationOptions<any>) {
  * scroll timeline, the keyframes span the timeline, delay included.
  * Undefined if it can't, so the group runs on the main thread.
  */
-export function nativeOf(
+function nativeOf(
     track: TransformMember,
     isScroll?: boolean
 ): NativeKeyframes | undefined {
     const {
         startTime,
-        speed,
         calculatedDuration,
         resolvedDuration,
         totalDuration,
         options,
     } = track
+    let { speed } = track
     const { keyframes, repeat, repeatType, repeatDelay, type, delay } = options
-    const samples = countSamples(calculatedDuration)
+    const samples = clamp(
+        2,
+        maxSamples,
+        Math.ceil(calculatedDuration / sampleDelta)
+    )
     let { ease, times } = options
     let offsets = times || defaultOffset(keyframes)
     let easings: string[]
@@ -354,7 +350,7 @@ export function nativeOf(
 
         offsets = [0, 1]
         easings = [
-            toLinear(
+            generateLinearEasing(
                 (p) =>
                     (parseFloat(
                         track.sampleTime(
@@ -364,7 +360,8 @@ export function nativeOf(
                     ) -
                         from) /
                     range,
-                samples
+                samples + 1,
+                1
             ),
         ]
     }
@@ -379,47 +376,53 @@ export function nativeOf(
      */
     let values = keyframes as AnyResolvedKeyframe[]
     let start = startTime! + delay! / speed
+    let duration = repeat ? resolvedDuration : totalDuration
     let iterations = repeat! + 1
     const isReversed = repeatType === "reverse"
-    if (repeat && repeatDelay && !isScroll) {
+    const prepend = () => {
+        offsets.unshift(0)
+        values = [values[0], ...values]
+        easings.unshift("linear")
+    }
+
+    if (isScroll) {
+        /**
+         * Over a scroll timeline, the delay holds the first keyframe for its
+         * share of the timeline.
+         */
+        if (delay) {
+            const share = totalDuration / (delay + totalDuration)
+            offsets = offsets.map((o) => 1 - share + o * share)
+            prepend()
+        }
+        start = duration = 0
+        iterations = speed = 1
+    } else if (repeat && repeatDelay) {
         const share = calculatedDuration / resolvedDuration
         const lead = isReversed ? (1 - share) / 2 : 0
         offsets = [...offsets.map((o) => lead + o * share), 1]
         values = [...values, values[values.length - 1]]
         easings.push("linear")
         if (isReversed) {
-            offsets.unshift(0)
-            values.unshift(values[0])
-            easings.unshift("linear")
+            prepend()
             start -= (lead * resolvedDuration) / speed
         }
         iterations -= 1 - share - lead
     }
 
-    /**
-     * Over a scroll timeline, the delay holds the first keyframe for its
-     * share of the timeline.
-     */
-    if (isScroll && delay) {
-        const share = totalDuration / (delay + totalDuration)
-        offsets = [0, ...offsets.map((o) => 1 - share + o * share)]
-        values = [values[0], ...values]
-        easings = ["linear", ...easings]
-    }
-
-    return {
-        start: isScroll ? 0 : start,
-        duration: isScroll ? 0 : repeat ? resolvedDuration : totalDuration,
-        iterations: isScroll ? 1 : iterations,
+    return [
+        start,
+        duration,
+        iterations,
         /**
          * Over a scroll timeline nothing repeats, as checked above.
          */
-        direction: repeat && isReversed ? "alternate" : "normal",
-        speed: isScroll ? 1 : speed,
+        repeat && isReversed ? "alternate" : "normal",
+        speed,
         offsets,
         values,
         easings,
-    }
+    ]
 }
 
 /**
@@ -475,12 +478,12 @@ function createGroup(owner: TransformOwner): TransformGroup {
      * when the WAAPI animation stops.
      */
     const committed = new Set<string>()
-    let built = new Map<TransformMember, BuiltState>()
+    const built = new Map<TransformMember, BuiltState>()
     /**
      * Builds the WAAPI animation shortly before it starts.
      */
     let wakeTimer: ReturnType<typeof setTimeout> | undefined
-    const wake = () => group.schedule(true)
+    const wake = () => schedule(true)
     /**
      * Each group waiting to build has a timer of its own. Waking several
      * at once, or from one queue of them all, costs more per frame.
@@ -498,6 +501,7 @@ function createGroup(owner: TransformOwner): TransformGroup {
      * built and how long it runs.
      */
     let native: Animation | undefined
+    let scrollAnimation: Animation | undefined
     let nativeStart = 0
     let nativeLength = 0
     let needsBuild = false
@@ -508,23 +512,6 @@ function createGroup(owner: TransformOwner): TransformGroup {
 
     const has = (key: string) => {
         for (const track of tracks) if (track.name === key) return true
-    }
-
-    /**
-     * Build a transform from values in transformPropOrder. For a keyframe,
-     * every key is written, even at its default, so each keyframe has the
-     * same list of functions and the browser interpolates them one by one.
-     * As an inline style, defaults are left out, as buildTransform does.
-     */
-    const toTransform = (values: ResolvedValues, isStyle?: boolean) => {
-        let transform = ""
-        for (const key in values) {
-            const value = values[key]
-            if (!isStyle || !isDefaultTransform(key, value)) {
-                transform += transformFunction(key, value) + " "
-            }
-        }
-        return (isStyle ? transform.trim() : transform) || "none"
     }
 
     /**
@@ -547,7 +534,7 @@ function createGroup(owner: TransformOwner): TransformGroup {
          * as from a stylesheet, is left alone.
          */
         hasTransform !== undefined &&
-            setStyle(element, "transform", toTransform(values, true))
+            setStyle(element, "transform", buildTransform(values, {}))
     }
 
     /**
@@ -573,22 +560,21 @@ function createGroup(owner: TransformOwner): TransformGroup {
      * Those at their default are left out. Returns the animating ones.
      */
     const readStatics = (now: number) => {
-        const byKey = new Map<string, TransformMember>()
+        const byKey: Record<string, TransformMember> = {}
         statics = {}
         extras = []
         for (const track of tracks) {
             const { name } = track
-            byKey.set(name, track)
+            byKey[name] = track
             if (!transformProps.has(name)) {
                 extras.push(name)
                 committed.add(name)
-                track.timing()[0] < Infinity ||
-                    (statics[name] = track.sampleAt(now))
+                isHeld(track) && (statics[name] = track.sampleAt(now))
             }
         }
         keys = transformPropOrder.filter((key) => {
-            const track = byKey.get(key)
-            if (track && track.timing()[0] < Infinity) return true
+            const track = byKey[key]
+            if (track && !isHeld(track)) return true
             const value = (statics[key] = track
                 ? track.sampleAt(now)
                 : read(owner, key))
@@ -602,7 +588,9 @@ function createGroup(owner: TransformOwner): TransformGroup {
      * and each other value.
      */
     const listsFor = () => {
-        const props: Composed["props"] = keys.length ? { transform: [] } : {}
+        const props: Record<string, AnyResolvedKeyframe[]> = keys.length
+            ? { transform: [] }
+            : {}
         for (const key of extras) props[key] = []
         return props
     }
@@ -618,7 +606,7 @@ function createGroup(owner: TransformOwner): TransformGroup {
         /**
          * Something else cancelled it, so carry on on the main thread.
          */
-        animation.oncancel = () => native === animation && group.demote()
+        animation.oncancel = () => native === animation && demote()
         native || addCompositorLayer(1)
         return (native = animation)
     }
@@ -632,12 +620,12 @@ function createGroup(owner: TransformOwner): TransformGroup {
      * if they can't be composed.
      */
     const compose = (
-        byKey: Map<string, TransformMember>,
+        byKey: Record<string, TransformMember>,
         isScroll?: boolean
     ): Composed | null | undefined => {
-        const natives = new Map<string, NativeKeyframes>()
+        const natives: Record<string, NativeKeyframes> = {}
         let shared: NativeKeyframes | undefined
-        let offsets: number[] = []
+        const offsets: number[] = []
         const all = keys.concat(extras)
         /**
          * The longest of the values on each spring's curve. Springs from
@@ -648,39 +636,40 @@ function createGroup(owner: TransformOwner): TransformGroup {
         const curves: Record<string, NativeKeyframes> = {}
 
         for (const key of all) {
-            const track = byKey.get(key)
-            if (!track || track.timing()[0] === Infinity) continue
+            const track = byKey[key]
+            if (!track || isHeld(track)) continue
 
             const keyframes = nativeOf(track, isScroll)
             if (!keyframes) return
-            natives.set(key, keyframes)
+            natives[key] = keyframes
 
             const { curve } = track.options
-            if (curve && !(curves[curve]?.duration >= keyframes.duration)) {
+            if (curve && !(curves[curve]?.[1] >= keyframes[1])) {
                 curves[curve] = keyframes
             }
         }
 
-        for (const [key, keyframes] of natives) {
-            const longest = curves[byKey.get(key)!.options.curve!]
+        for (const key in natives) {
+            const keyframes = natives[key]
+            const longest = curves[byKey[key].options.curve!]
             if (longest) {
-                keyframes.duration = longest.duration
-                keyframes.easings = longest.easings
+                keyframes[1] = longest[1]
+                keyframes[7] = longest[7]
             }
 
             if (
                 shared &&
-                (Math.abs(keyframes.start - shared.start) > 1 ||
-                    Math.abs(keyframes.duration - shared.duration) > 1 ||
-                    keyframes.iterations !== shared.iterations ||
-                    keyframes.direction !== shared.direction ||
-                    keyframes.speed !== shared.speed)
+                (Math.abs(keyframes[0] - shared[0]) > 1 ||
+                    Math.abs(keyframes[1] - shared[1]) > 1 ||
+                    keyframes[2] !== shared[2] ||
+                    keyframes[3] !== shared[3] ||
+                    keyframes[4] !== shared[4])
             ) {
                 return
             }
 
             shared ||= keyframes
-            for (const offset of keyframes.offsets) {
+            for (const offset of keyframes[5]) {
                 offsets.includes(offset) || offsets.push(offset)
             }
         }
@@ -700,50 +689,58 @@ function createGroup(owner: TransformOwner): TransformGroup {
             let spanEasing: string | undefined
 
             for (const key of all) {
-                const keyframes = natives.get(key)
-                if (!keyframes) {
-                    props[key]
-                        ? props[key].push(statics[key]!)
-                        : (values[key] = statics[key]!)
-                    continue
+                const keyframes = natives[key]
+                let value = statics[key]!
+
+                if (keyframes) {
+                    const kfOffsets = keyframes[5]
+                    const kfValues = keyframes[6]
+                    /**
+                     * Its keyframe at this offset or, if it has none, the
+                     * value it holds across it.
+                     */
+                    let index = kfOffsets.indexOf(offsets[i])
+                    const isOwn = index >= 0
+                    if (!isOwn) {
+                        index = kfOffsets.findIndex((o) => o > offsets[i]) - 1
+                    }
+                    value = kfValues[index]
+                    const isMoving = value !== kfValues[index + 1]
+                    if (!isOwn && isMoving) return
+
+                    /**
+                     * The span from this keyframe to the next has the easing
+                     * of every animation that moves over it, which must agree.
+                     */
+                    if (
+                        isOwn &&
+                        isMoving &&
+                        i < offsets.length - 1 &&
+                        kfOffsets[index + 1] === offsets[i + 1]
+                    ) {
+                        const ease = keyframes[7][index]
+                        if (spanEasing && spanEasing !== ease) return
+                        spanEasing = ease
+                    }
                 }
 
-                /**
-                 * Its keyframe at this offset or, if it has none, the
-                 * value it holds across it.
-                 */
-                let index = keyframes.offsets.indexOf(offsets[i])
-                const isOwn = index >= 0
-                if (!isOwn) {
-                    index =
-                        keyframes.offsets.findIndex((o) => o > offsets[i]) - 1
-                }
-                const value = keyframes.values[index]
-                const isMoving = value !== keyframes.values[index + 1]
-                if (!isOwn && isMoving) return
                 props[key] ? props[key].push(value) : (values[key] = value)
-
-                /**
-                 * The span from this keyframe to the next has the easing
-                 * of every animation that moves over it, which must agree.
-                 */
-                if (
-                    isOwn &&
-                    isMoving &&
-                    i < offsets.length - 1 &&
-                    keyframes.offsets[index + 1] === offsets[i + 1]
-                ) {
-                    const ease = keyframes.easings[index]
-                    if (spanEasing && spanEasing !== ease) return
-                    spanEasing = ease
-                }
             }
 
             props.transform?.push(toTransform(values))
             i < offsets.length - 1 && easing.push(spanEasing || "linear")
         }
 
-        return { ...shared, offsets, easing, props }
+        return [
+            shared[0],
+            shared[1],
+            shared[2],
+            shared[3],
+            shared[4],
+            offsets,
+            props,
+            easing,
+        ]
     }
 
     /**
@@ -757,7 +754,7 @@ function createGroup(owner: TransformOwner): TransformGroup {
      * moves.
      */
     const sample = (
-        byKey: Map<string, TransformMember>,
+        byKey: Record<string, TransformMember>,
         now: number
     ): Composed | undefined => {
         let end = Infinity
@@ -766,14 +763,14 @@ function createGroup(owner: TransformOwner): TransformGroup {
 
         for (const track of tracks) {
             if (track.speed < 0) return
-            const [trackEnd, cycle] = track.timing()
-            if (trackEnd === Infinity) continue
+            if (isHeld(track)) continue
             moving.push(track)
-            cycle || (end = Math.min(end, trackEnd))
+            end = Math.min(end, endTime(track))
         }
         if (!(end < Infinity)) return
 
-        const step = Math.max(sampleStep, (end - now) / maxSamples)
+        const duration = end - now
+        const step = Math.max(sampleStep, duration / maxSamples)
         for (let t = now; t < end; t += step) times.push(t)
         times.push(end)
 
@@ -794,10 +791,8 @@ function createGroup(owner: TransformOwner): TransformGroup {
         times.sort(byTime)
 
         const at = (key: string, t: number) => {
-            const track = byKey.get(key)
-            return track && track.timing()[0] < Infinity
-                ? track.sampleAt(t)
-                : statics[key]!
+            const track = byKey[key]
+            return track && !isHeld(track) ? track.sampleAt(t) : statics[key]!
         }
         const props = listsFor()
         for (const t of times) {
@@ -807,16 +802,15 @@ function createGroup(owner: TransformOwner): TransformGroup {
             for (const key of extras) props[key].push(at(key, t))
         }
 
-        return {
-            start: now,
-            duration: end - now,
-            iterations: 1,
-            direction: "normal",
-            speed: 1,
-            offsets: times.map((t) => (t - now) / (end - now)),
-            easing: times.map(() => "linear").slice(1),
+        return [
+            now,
+            duration,
+            1,
+            "normal",
+            1,
+            times.map((t) => (t - now) / duration),
             props,
-        }
+        ]
     }
 
     /**
@@ -824,13 +818,9 @@ function createGroup(owner: TransformOwner): TransformGroup {
      * undefined if the animations can't be composed.
      */
     const animate = (now: number) => {
-        built = new Map()
+        built.clear()
         for (const track of tracks) {
-            built.set(track, [
-                track.at(now),
-                track.speed,
-                track.timing()[0] === Infinity,
-            ])
+            built.set(track, [track.at(now), track.speed, isHeld(track)])
         }
 
         const byKey = readStatics(now)
@@ -847,47 +837,57 @@ function createGroup(owner: TransformOwner): TransformGroup {
         }
         if (!composed) return
 
-        const { iterations, direction, speed, props } = composed
-        let { start, duration, offsets, easing } = composed
+        let [
+            start,
+            duration,
+            iterations,
+            direction,
+            speed,
+            offsets,
+            props,
+            easing,
+        ] = composed
         let endDelay = 0
-        const lists = Object.values(props)
-        const row = (i: number) => lists.map((list) => list[i]) + ""
 
         /**
          * Played once, it's built from when it starts to move until it
          * stops, as a sequence segment, holding its last keyframe until
          * the animations end.
          */
-        let first = 0
-        let last = offsets.length - 1
-        while (first < last && row(first + 1) === row(first)) first++
-        while (last > first && row(last - 1) === row(last)) last--
+        if (iterations === 1 && speed > 0) {
+            const lists = Object.values(props)
+            const row = (i: number) => lists.map((list) => list[i]) + ""
+            let first = 0
+            let last = offsets.length - 1
+            while (first < last && row(first + 1) === row(first)) first++
+            while (last > first && row(last - 1) === row(last)) last--
 
-        if (iterations === 1 && speed > 0 && first < last) {
-            const from = offsets[first]
-            const span = offsets[last] - from
-            start += (from * duration) / speed
-            endDelay = (1 - offsets[last]) * duration
-            duration *= span
-            offsets = offsets
-                .slice(first, last + 1)
-                .map((offset) => (offset - from) / span)
-            for (const key in props) {
-                props[key] = props[key].slice(first, last + 1)
-            }
-            easing = easing.slice(first, last)
+            if (first < last) {
+                const from = offsets[first]
+                const span = offsets[last] - from
+                start += (from * duration) / speed
+                endDelay = (1 - offsets[last]) * duration
+                duration *= span
+                offsets = offsets
+                    .slice(first, last + 1)
+                    .map((offset) => (offset - from) / span)
+                for (const key in props) {
+                    props[key] = props[key].slice(first, last + 1)
+                }
+                easing &&= easing.slice(first, last)
 
-            /**
-             * Until shortly before then, it isn't built, so a stagger or
-             * sequence doesn't make every element a compositor layer at
-             * once. Its motion values hold where it starts, for the
-             * renderer to write.
-             */
-            const wait = start - now - buildAhead
-            if (wait > 0) {
-                tracks.forEach((track) => track.sync())
-                sleep((buildAt = wait))
-                return true
+                /**
+                 * Until shortly before then, it isn't built, so a stagger or
+                 * sequence doesn't make every element a compositor layer at
+                 * once. Its motion values hold where it starts, for the
+                 * renderer to write.
+                 */
+                const wait = start - now - buildAhead
+                if (wait > 0) {
+                    tracks.forEach((track) => track.sync())
+                    sleep((buildAt = wait))
+                    return true
+                }
             }
         }
 
@@ -898,18 +898,17 @@ function createGroup(owner: TransformOwner): TransformGroup {
          * moves, the empty animation still finishes the animations.
          */
         let keyframes: PropertyIndexedKeyframes | null = null
-        let isHeld = false
+        let hasHeld = false
         for (const key in props) {
             const values = props[key]
             values.some((v) => v !== values[0])
                 ? ((keyframes ||= {})[key] = values as string[])
-                : (isHeld = true)
+                : (hasHeld = true)
         }
-        isHeld && commit()
+        hasHeld && commit()
         if (keyframes && offsets.length > 2) {
-            ;(keyframes as PropertyIndexedKeyframes).offset = offsets
-            easing.some((e) => e !== "linear") &&
-                ((keyframes as PropertyIndexedKeyframes).easing = easing)
+            keyframes.offset = offsets
+            easing?.some((e) => e !== "linear") && (keyframes.easing = easing)
         }
 
         nativeStart = start - now
@@ -919,7 +918,7 @@ function createGroup(owner: TransformOwner): TransformGroup {
             iterations,
             direction,
             endDelay,
-            easing: offsets.length > 2 ? "linear" : easing[0],
+            easing: offsets.length > 2 ? "linear" : easing?.[0] || "linear",
             fill: "both",
         })
         speed !== 1 && (animation.playbackRate = speed)
@@ -934,27 +933,20 @@ function createGroup(owner: TransformOwner): TransformGroup {
     }
 
     /**
-     * The WAAPI animation on a scroll timeline, while the group runs on
-     * one.
-     */
-    let scrollAnimation: Animation | undefined
-
-    /**
      * Build one WAAPI animation on a native scroll timeline every
      * animation follows. Each animation runs from its start to its end
      * over the timeline, as one followed from JS does.
      */
     const buildScroll = (timeline: TimelineWithFallback) => {
-        built = new Map()
+        built.clear()
         const composed = compose(readStatics(time.now()), true)
         stop(false)
-        if (!composed) return composed === null ? commit() : group.demote(true)
+        if (!composed) return composed === null ? commit() : demote(true)
 
-        const { offsets, easing, props } = composed
-        const animation = create(
-            { ...(props as PropertyIndexedKeyframes), offset: offsets, easing },
-            { duration: 1000, fill: "both" }
-        )
+        const props = composed[6] as PropertyIndexedKeyframes
+        props.offset = composed[5]
+        props.easing = composed[7]
+        const animation = create(props, { duration: 1000, fill: "both" })
         animation.timeline = timeline.timeline as AnimationTimeline
         timeline.onAttach ? timeline.onAttach(animation) : animation.play()
         scrollAnimation = animation
@@ -977,19 +969,19 @@ function createGroup(owner: TransformOwner): TransformGroup {
 
             const [builtTime, builtSpeed, wasHeld] = state
             const trackTime = track.at(now)
-            const isHeld = track.timing()[0] === Infinity
+            const trackHeld = isHeld(track)
 
             /**
              * With nothing on the compositor, a held animation is set
              * where it's held, so it can be seeked as often as needed.
              */
             if (wasHeld) {
-                if (isHeld && (trackTime === builtTime || !native)) continue
+                if (trackHeld && (trackTime === builtTime || !native)) continue
                 return false
             }
 
             const trackElapsed = (trackTime - builtTime) / builtSpeed
-            const trackRate = isHeld ? 0 : track.speed / builtSpeed
+            const trackRate = trackHeld ? 0 : track.speed / builtSpeed
 
             if (elapsed === undefined) {
                 elapsed = trackElapsed
@@ -1037,21 +1029,22 @@ function createGroup(owner: TransformOwner): TransformGroup {
             return false
         }
 
-        if (
-            rate &&
-            native.updatePlaybackRate &&
-            native.playState === "running" &&
-            Math.abs(Number(native.currentTime) - local) < 20
-        ) {
-            /**
-             * Only the speed changed. Setting playbackRate and
-             * startTime restarts a running compositor animation, which
-             * can render the underlying value for a frame.
-             */
-            native.playbackRate !== rate && native.updatePlaybackRate(rate)
-        } else if (rate) {
-            native.playbackRate !== rate && (native.playbackRate = rate)
-            native.startTime = now - local / rate
+        if (rate) {
+            if (
+                native.updatePlaybackRate &&
+                native.playState === "running" &&
+                Math.abs(Number(native.currentTime) - local) < 20
+            ) {
+                /**
+                 * Only the speed changed. Setting playbackRate and
+                 * startTime restarts a running compositor animation, which
+                 * can render the underlying value for a frame.
+                 */
+                native.playbackRate !== rate && native.updatePlaybackRate(rate)
+            } else {
+                native.playbackRate !== rate && (native.playbackRate = rate)
+                native.startTime = now - local / rate
+            }
         } else {
             /**
              * Hold it without pause(), whose pending pause setting
@@ -1092,8 +1085,6 @@ function createGroup(owner: TransformOwner): TransformGroup {
         if (!group.isJS) {
             group.isFinishing = true
             tracks.forEach((track) => {
-                const [trackEnd, trackCycle] = track.timing()
-
                 if (track.state !== "running" || track.scrollTimeline) return
 
                 const { speed } = track
@@ -1103,7 +1094,7 @@ function createGroup(owner: TransformOwner): TransformGroup {
                  */
                 if (
                     !(speed > 0
-                        ? !trackCycle && trackEnd <= now + 1
+                        ? endTime(track) <= now + 1
                         : speed < 0 && track.at(now) <= 1)
                 ) {
                     return
@@ -1134,22 +1125,18 @@ function createGroup(owner: TransformOwner): TransformGroup {
          * One of too many elements repainting every frame, it stays on the
          * main thread until it stops.
          */
-        if (isRepainting(element)) return group.demote(true)
+        if (isRepainting(element)) return demote(true)
 
         let timeline: TimelineWithFallback | undefined | false = false
         for (const track of tracks) {
-            if (!track.canAccelerate) return group.demote(true)
-
-            /**
-             * Animations that follow different timelines, or none, can't
-             * share a WAAPI animation.
-             */
             const { scrollTimeline } = track
-            if (timeline === false) {
-                timeline = scrollTimeline
-            } else if (scrollTimeline !== timeline) {
-                return group.demote(true)
+            if (
+                !track.canAccelerate ||
+                (timeline !== false && scrollTimeline !== timeline)
+            ) {
+                return demote(true)
             }
+            timeline = scrollTimeline
         }
 
         /**
@@ -1169,14 +1156,14 @@ function createGroup(owner: TransformOwner): TransformGroup {
 
         if (shouldBuild || !retime(now, churned)) {
             if (churned) {
-                if (now - lastChurn < churnWindow) return group.demote()
+                if (now - lastChurn < churnWindow) return demote()
                 lastChurn = now
             }
             /**
              * Timing that isn't shared runs on the main thread until it
              * is again, as when a value joining a loop ends.
              */
-            if (!animate(now)) return group.demote(true)
+            if (!animate(now)) return demote(true)
         } else if (buildAt !== undefined && !churned) {
             /**
              * Still waiting to build, so the values still hold where
@@ -1190,15 +1177,65 @@ function createGroup(owner: TransformOwner): TransformGroup {
          * they're held, as a JSAnimation would on its next tick. Pausing
          * and seeking schedule this, so it's once however many there are.
          */
-        tracks.forEach(
-            (track) => track.timing()[0] === Infinity && track.sync()
-        )
+        tracks.forEach((track) => isHeld(track) && track.sync())
+    }
+
+    const schedule = (build_: boolean, isChurn?: boolean) => {
+        if (isEnded) return
+
+        needsBuild ||= build_
+        hasChurned ||= !!isChurn
+
+        /**
+         * Build in this frame's render step, so it's in place before
+         * anything reads the DOM in postRender, or straight after the
+         * current task outside of a frame.
+         */
+        if (!isScheduled) {
+            isScheduled = true
+            frameData.isProcessing
+                ? frame.render(build, false, true)
+                : buildSoon(build)
+        }
+    }
+
+    const demote = (canReturn?: boolean): true | void => {
+        if (group.isJS || isEnded) return
+
+        /**
+         * Unless only another animation is holding the group on the
+         * main thread, these animations stay there until they end.
+         */
+        tracks.forEach((track) => {
+            track.isAccelerated() && track.sync()
+            canReturn || (track.canAccelerate = false)
+        })
+
+        group.isJS = true
+        built.clear()
+
+        stop()
+
+        /**
+         * Paused animations tick too, as a JSAnimation does, so one
+         * paused before its first frame still renders it.
+         */
+        tracks.forEach((track) => hasEnded(track) || track.parent.js?.start())
+
+        /**
+         * Values on a native scroll timeline follow it from JS instead.
+         */
+        tracks.forEach((track) => track.scrollTimeline && track.observe())
+
+        return true
     }
 
     const group: TransformGroup = {
         tracks,
         isJS: false,
         isFinishing: false,
+        schedule,
+        demote,
 
         scrollTime(track) {
             const progress =
@@ -1208,25 +1245,6 @@ function createGroup(owner: TransformOwner): TransformGroup {
             return typeof progress === "number"
                 ? progress * track.iterationDuration * 1000
                 : undefined
-        },
-
-        schedule(build_: boolean, isChurn?: boolean) {
-            if (isEnded) return
-
-            needsBuild ||= build_
-            hasChurned ||= !!isChurn
-
-            /**
-             * Build in this frame's render step, so it's in place before
-             * anything reads the DOM in postRender, or straight after the
-             * current task outside of a frame.
-             */
-            if (!isScheduled) {
-                isScheduled = true
-                frameData.isProcessing
-                    ? frame.render(build, false, true)
-                    : buildSoon(build)
-            }
         },
 
         /**
@@ -1240,7 +1258,7 @@ function createGroup(owner: TransformOwner): TransformGroup {
              * they're part way through play(), and are about to run.
              */
             hasEnded(track) && tracks.delete(track)
-            end() || group.schedule(true)
+            end() || schedule(true)
         },
 
         /**
@@ -1252,41 +1270,9 @@ function createGroup(owner: TransformOwner): TransformGroup {
 
             for (const key in statics) {
                 if (read(owner, key) !== statics[key] && !has(key)) {
-                    return group.schedule(true, true)
+                    return schedule(true, true)
                 }
             }
-        },
-
-        demote(canReturn?: boolean) {
-            if (group.isJS || isEnded) return
-
-            /**
-             * Unless only another animation is holding the group on the
-             * main thread, these animations stay there until they end.
-             */
-            tracks.forEach((track) => {
-                track.isAccelerated() && track.sync()
-                canReturn || (track.canAccelerate = false)
-            })
-
-            group.isJS = true
-            built = new Map()
-
-            stop()
-            scrollAnimation = undefined
-
-            /**
-             * Paused animations tick too, as a JSAnimation does, so one
-             * paused before its first frame still renders it.
-             */
-            tracks.forEach((track) => hasEnded(track) || track.js?.start())
-
-            /**
-             * Values on a native scroll timeline follow it from JS instead.
-             */
-            tracks.forEach((track) => track.scrollTimeline && track.observe())
-
-            return true
         },
 
         repaint: (value) => markRepaint(element, value),

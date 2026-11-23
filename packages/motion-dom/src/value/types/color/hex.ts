@@ -1,5 +1,5 @@
 import { RGBA } from "../types"
-import { rgba } from "./rgba"
+import { rgbaTransform } from "./rgba"
 import { isColorString } from "./utils"
 
 /**
@@ -25,5 +25,5 @@ function parseHex(v: string): RGBA {
 export const hex = {
     test: /*@__PURE__*/ isColorString("#"),
     parse: parseHex,
-    transform: rgba.transform,
+    transform: rgbaTransform,
 }

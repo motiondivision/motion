@@ -83,6 +83,8 @@ describe("flat bundle tree-shaking", () => {
                 LayoutGroup,
                 LazyMotion,
                 domAnimation,
+                domDrag,
+                domLayout,
                 domMax,
                 useMotionValue,
                 useTransform,

@@ -91,14 +91,14 @@ export function useVisualElement<
 
     if (
         visualElement &&
-        !visualElement.projection &&
         ProjectionNodeConstructor &&
         (visualElement.type === "html" || visualElement.type === "svg")
     ) {
         /**
          * Classes built by createProjectionNode set up their node from the
          * component's props, so components only bundle the setup with the
-         * layout and drag features.
+         * layout and drag features. `create` returns early if the
+         * VisualElement already has a node it can't replace.
          */
         ProjectionNodeConstructor.create(
             visualElement,
