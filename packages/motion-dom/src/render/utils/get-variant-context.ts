@@ -1,8 +1,6 @@
 import { isVariantLabel } from "./is-variant-label"
 import { variantProps } from "./variant-props"
 
-const numVariantProps = variantProps.length
-
 type VariantStateContext = {
     initial?: string | string[]
     animate?: string | string[]
@@ -34,7 +32,7 @@ export function getVariantContext(
     }
 
     const context: VariantStateContext = {}
-    for (let i = 0; i < numVariantProps; i++) {
+    for (let i = 0; i < variantProps.length; i++) {
         const name = variantProps[i] as keyof typeof context
         const prop = visualElement.props[name]
 

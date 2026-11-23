@@ -69,24 +69,21 @@ function flush() {
  * Changed values are batched into a single set() per subject per frame in
  * `frame.preRender`, ahead of render loops scheduled with `frame.render`.
  */
-export const vgpuEffect = createEffect<Subject>(
-    (subject, state: MotionValueState, key, value) =>
-        state.set(
-            key,
-            value,
-            () => {
+export const vgpuEffect = /* @__PURE__ */ (() =>
+    createEffect<Subject>(
+        (subject, state: MotionValueState, key, value) =>
+            state.set(key, value, () => {
                 const bag = pending.get(subject) ?? {}
                 bag[key] = value.get()
                 pending.set(subject, bag)
                 frame.preRender(flush, false, true)
-            }
-        ),
-    {
-        test: isVGPUSubject,
-        read: readInitial,
-        step: frame.preRender,
-    }
-)
+            }),
+        {
+            test: isVGPUSubject,
+            read: readInitial,
+            step: frame.preRender,
+        }
+    ))()
 
 /**
  * Claims vgpu shader units (Effect, Draw, Compute), shared uniforms, scene

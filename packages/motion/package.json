@@ -102,8 +102,7 @@
         "postpublish": "git push --tags"
     },
     "dependencies": {
-        "framer-motion": "14.14.0",
-        "tslib": "^2.4.0"
+        "framer-motion": "14.14.0"
     },
     "peerDependencies": {
         "react": "^18.0.0 || ^19.0.0",

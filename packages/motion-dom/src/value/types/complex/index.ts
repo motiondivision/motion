@@ -2,16 +2,17 @@ import { AnyResolvedKeyframe } from "../../../animation/types"
 import { CSSVariableToken } from "../../../animation/utils/is-css-variable"
 import { color } from "../color"
 import { Color } from "../types"
-import { colorRegex } from "../utils/color-regex"
-import { floatRegex } from "../utils/float-regex"
 import { sanitize } from "../utils/sanitize"
 
 /**
- * Non-global copies of the token regexes so test() can use .test()
+ * Non-global copies of floatRegex and colorRegex so test() can use .test()
  * (no match array, stops at the first token) without lastIndex state.
+ * Literals rather than new RegExp(x.source), so importing this module has
+ * no side effects. Keep them in step with ../utils.
  */
-const hasFloat = /*@__PURE__*/ new RegExp(floatRegex.source)
-const hasColor = /*@__PURE__*/ new RegExp(colorRegex.source, "i")
+const hasFloat = /-?(?:\d+(?:\.\d+)?|\.\d+)(?:e[-+]?\d+)?/
+const hasColor =
+    /(?:#[\da-f]{3,8}|(?:rgb|hsl)a?\((?:-?[\d.]+(?:e[-+]?\d+)?%?[,\s]+){2}-?[\d.]+(?:e[-+]?\d+)?%?\s*(?:[,/]\s*)?(?:(?:\b\d+(?:\.\d+)?|\.\d+)(?:e[-+]?\d+)?)?%?\))/i
 
 function test(v: any) {
     return isNaN(v) && typeof v === "string" && hasComplexValues(v)

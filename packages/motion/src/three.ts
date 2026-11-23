@@ -34,16 +34,17 @@ type ThreeObject = Record<string, any>
  * straight away. Others are written in `frame.preRender`. Either way the
  * scene is up to date ahead of render loops scheduled with `frame.render`.
  */
-export const threeEffect = createEffect<ThreeObject>(
-    (subject, state: MotionValueState, key, value) =>
-        state.set(key, value, createRender(subject, key, value)),
-    {
-        test: isThreeSubject,
-        read: getObjectValue,
-        step: frame.preRender,
-        sync: true,
-    }
-)
+export const threeEffect = /* @__PURE__ */ (() =>
+    createEffect<ThreeObject>(
+        (subject, state: MotionValueState, key, value) =>
+            state.set(key, value, createRender(subject, key, value)),
+        {
+            test: isThreeSubject,
+            read: getObjectValue,
+            step: frame.preRender,
+            sync: true,
+        }
+    ))()
 
 /**
  * Claims Three.js objects, materials and uniforms objects. Vectors, colors

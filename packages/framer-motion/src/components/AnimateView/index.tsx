@@ -23,13 +23,6 @@ interface ViewTransitionProps {
     onUpdate: ViewTransitionEvent
 }
 
-// Keep the entry point importable with React 18 and its type definitions.
-const ViewTransition = (
-    React as unknown as {
-        ViewTransition?: ComponentType<PropsWithChildren<ViewTransitionProps>>
-    }
-).ViewTransition
-
 /**
  * Animate enter, exit, update and shared view transitions.
  * Requires React and React DOM 19.3 or later.
@@ -38,6 +31,15 @@ export function AnimateView({
     children,
     ...props
 }: PropsWithChildren<AnimateViewProps>): React.ReactElement {
+    // Keep the entry point importable with React 18 and its type definitions.
+    const ViewTransition = (
+        React as unknown as {
+            ViewTransition?: ComponentType<
+                PropsWithChildren<ViewTransitionProps>
+            >
+        }
+    ).ViewTransition
+
     if (!ViewTransition) {
         throw new Error("AnimateView requires React 19.3 or later.")
     }
