@@ -1,77 +1,107 @@
 type IntersectionHandler = (entry: IntersectionObserverEntry) => void
 
-interface ElementIntersectionObservers {
-    [key: string]: IntersectionObserver
+/**
+ * An element's handler, or its handlers once there's more than one, so
+ * the usual single handler costs no Set.
+ */
+type ElementHandlers = IntersectionHandler | Set<IntersectionHandler>
+
+export interface SharedObserver {
+    observer: IntersectionObserver
+    handlers: WeakMap<Element, ElementHandlers>
 }
 
 /**
- * Map an IntersectionHandler callback to an element. We only ever make one handler for one
- * element, so even though these handlers might all be triggered by different
- * observers, we can keep them in the same map.
- */
-const observerCallbacks = new WeakMap<Element, IntersectionHandler>()
-
-/**
- * Multiple observers can be created for multiple element/document roots. Each with
- * different settings. So here we store dictionaries of observers to each root,
- * using serialised settings (threshold/margin) as lookup keys.
+ * Elements observed with the same root and settings share one
+ * IntersectionObserver, so many in-view elements don't each make their own.
+ * Observers are stored per root, under their serialised settings.
  */
 const observers = new WeakMap<
     Element | Document,
-    ElementIntersectionObservers
+    { [key: string]: SharedObserver }
 >()
 
-const fireObserverCallback = (entry: IntersectionObserverEntry) => {
-    const callback = observerCallbacks.get(entry.target)
-    callback && callback(entry)
-}
-
-const fireAllObserverCallbacks: IntersectionObserverCallback = (entries) => {
-    entries.forEach(fireObserverCallback)
-}
-
-function initIntersectionObserver({
-    root,
-    ...options
-}: IntersectionObserverInit): IntersectionObserver {
+export function getObserver({ root, ...options }: IntersectionObserverInit) {
     const lookupRoot = root || document
 
-    /**
-     * If we don't have an observer lookup map for this root, create one.
-     */
-    if (!observers.has(lookupRoot)) {
-        observers.set(lookupRoot, {})
-    }
-    const rootObservers = observers.get(lookupRoot)!
+    let rootObservers = observers.get(lookupRoot)
+    if (!rootObservers) observers.set(lookupRoot, (rootObservers = {}))
 
     const key = JSON.stringify(options)
 
-    /**
-     * If we don't have an observer for this combination of root and settings,
-     * create one.
-     */
     if (!rootObservers[key]) {
-        rootObservers[key] = new IntersectionObserver(
-            fireAllObserverCallbacks,
-            { root, ...options }
-        )
+        const handlers = new WeakMap<Element, ElementHandlers>()
+        rootObservers[key] = {
+            handlers,
+            observer: new IntersectionObserver(
+                (entries) => {
+                    for (let i = 0; i < entries.length; i++) {
+                        const entry = entries[i]
+                        const handler = handlers.get(entry.target)
+                        typeof handler === "function"
+                            ? handler(entry)
+                            : handler?.forEach((h) => h(entry))
+                    }
+                },
+                { root, ...options }
+            ),
+        }
     }
 
     return rootObservers[key]
 }
 
+export function observe(
+    { observer, handlers }: SharedObserver,
+    element: Element,
+    handler: IntersectionHandler
+) {
+    const current = handlers.get(element)
+
+    if (current) {
+        /**
+         * Observe the element again, so this handler is told whether it's
+         * in view. Handlers already watching it ignore the unchanged entry.
+         */
+        observer.unobserve(element)
+        typeof current === "function"
+            ? handlers.set(element, new Set([current, handler]))
+            : current.add(handler)
+    } else {
+        handlers.set(element, handler)
+    }
+
+    observer.observe(element)
+}
+
+export function unobserve(
+    { observer, handlers }: SharedObserver,
+    element: Element,
+    handler: IntersectionHandler
+) {
+    const current = handlers.get(element)
+    if (!current) return
+
+    /**
+     * A handler that's no longer the element's, as after the element was
+     * observed again, leaves it alone.
+     */
+    if (typeof current === "function") {
+        if (current !== handler) return
+    } else if (!current.delete(handler) || current.size) {
+        return
+    }
+
+    handlers.delete(element)
+    observer.unobserve(element)
+}
+
 export function observeIntersection(
     element: Element,
     options: IntersectionObserverInit,
-    callback: IntersectionHandler
+    handler: IntersectionHandler
 ) {
-    const rootInteresectionObserver = initIntersectionObserver(options)
-
-    observerCallbacks.set(element, callback)
-    rootInteresectionObserver.observe(element)
-
-    return () => {
-        observerCallbacks.delete(element)
-        rootInteresectionObserver.unobserve(element)
-    }
+    const shared = getObserver(options)
+    observe(shared, element, handler)
+    return () => unobserve(shared, element, handler)
 }

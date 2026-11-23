@@ -18,8 +18,15 @@ window.IntersectionObserver = class MockIntersectionObserver {
         this.callback = callback
     }
 
-    observe(_element: Element) {
-        activeIntersectionObserver = this.callback
+    observe(element: Element) {
+        /**
+         * Report entries for the observed element, as observers only hear
+         * about the elements they observe.
+         */
+        activeIntersectionObserver = (entries) =>
+            this.callback(
+                entries.map((entry) => ({ ...entry, target: element }))
+            )
     }
 
     unobserve(_element: Element) {

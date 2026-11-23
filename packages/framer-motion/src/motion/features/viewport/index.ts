@@ -20,6 +20,8 @@ export class InViewFeature extends Feature<Element> {
         const { viewport = {} } = this.node.getProps()
         const { root, margin: rootMargin, amount = "some", once } = viewport
 
+        if (once && this.hasEnteredView) return
+
         const options = {
             root: root ? root.current : undefined,
             rootMargin,
@@ -45,6 +47,12 @@ export class InViewFeature extends Feature<Element> {
                 return
             } else if (isIntersecting) {
                 this.hasEnteredView = true
+
+                /**
+                 * Once it has entered, a once element has nothing more to
+                 * hear, so stop observing it.
+                 */
+                once && this.stopObserver?.()
             }
 
             this.node.animationState?.setActive("whileInView", isIntersecting)
