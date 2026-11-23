@@ -40,7 +40,6 @@ function Cards({
     still,
     style,
     opacity,
-    layoutScroll,
 }: {
     top?: number | string
     /** The card only moves, and the child keeps its place in it. */
@@ -48,7 +47,6 @@ function Cards({
     style?: Record<string, string | number>
     /** Animate opacity too, for this long. */
     opacity?: number
-    layoutScroll?: boolean
     count: number
     willChange?: string
     name?: string
@@ -67,19 +65,18 @@ function Cards({
                     key={i}
                     className={"card " + name}
                     layout
-                    layoutDependency={moved}
+                    layoutDependency={`${moved}${still}`}
                     transition={transition}
                     data-moved={moved}
                     data-top={top}
                     data-plain={still}
-                    layoutScroll={layoutScroll}
                     animate={opacity ? { opacity: moved ? 0.5 : 1 } : undefined}
                     style={{ willChange, ...style }}
                 >
                     <motion.div
                         className={"child " + name}
                         layout
-                        layoutDependency={moved}
+                        layoutDependency={`${moved}${still}`}
                         transition={transition}
                         data-moved={moved}
                         data-top={top}
@@ -258,31 +255,6 @@ describe("layer budget", () => {
         expect(new Set(willChanges("second"))).toEqual(new Set(["transform"]))
     })
 
-    test("nodes that stay far outside the viewport get no will-change and don't use the budget", async () => {
-        render(
-            <>
-                <Cards count={3} name="visible" />
-                <Cards count={199} name="hidden" top={5000} />
-            </>
-        )
-        await frames(2)
-        await act(async () => {
-            toggles.visible()
-            toggles.hidden()
-        })
-        await frames(10)
-        expect(new Set(willChanges("visible"))).toEqual(new Set(["transform"]))
-        expect(new Set(willChanges("hidden"))).toEqual(new Set([""]))
-    })
-
-    test("a few nodes far outside the viewport get no will-change", async () => {
-        render(<Cards count={3} name="hidden" top={5000} />)
-        await frames(2)
-        await act(async () => toggles.hidden())
-        await frames(10)
-        expect(new Set(willChanges("hidden"))).toEqual(new Set([""]))
-    })
-
     test("nodes that keep their place in a parent don't use the budget", async () => {
         render(<Cards count={201} name="first" still />)
         await frames(2)
@@ -347,37 +319,6 @@ describe("layer budget", () => {
         expect(new Set(willChanges("first"))).toEqual(new Set(["transform"]))
         await frames(200)
         expect(new Set(willChanges("first"))).toEqual(new Set([""]))
-    })
-
-    test("a node with a transform of its own counts as in view", async () => {
-        render(
-            <Cards count={3} name="first" top="pulled" style={{ y: -5000 }} />
-        )
-        await frames(2)
-        await act(async () => toggles.first())
-        await frames(10)
-        expect(new Set(willChanges("first"))).toEqual(new Set(["transform"]))
-    })
-
-    test("a fixed node counts as in view on a scrolled page", async () => {
-        Object.defineProperty(document.documentElement, "scrollTop", {
-            value: 5000,
-            configurable: true,
-        })
-        render(
-            <Cards
-                count={3}
-                name="first"
-                layoutScroll
-                style={{ position: "fixed" }}
-            />
-        )
-        await frames(2)
-        await act(async () => toggles.first())
-        await frames(10)
-        delete (document.documentElement as any).scrollTop
-        const cards = document.querySelectorAll<HTMLElement>(".card")
-        for (const { style } of cards) expect(style.willChange).toBe("transform")
     })
 
     test("nodes get will-change on the first frame they move", async () => {
@@ -472,6 +413,68 @@ describe("layer budget", () => {
         expect(first.style.willChange).toBe("")
     })
 
+    test("a node loses will-change when it starts to change size with a corrected border radius", async () => {
+        const style = { borderRadius: 10 }
+        const { rerender } = render(<Cards count={1} still style={style} />)
+        await frames(2)
+        await act(async () => toggle())
+        await frames(10)
+        const [card] = elements()
+        expect(card.style.willChange).toBe("transform")
+        await act(async () => rerender(<Cards count={1} style={style} />))
+        await frames(10)
+        expect(card.style.transform).toContain("scale")
+        expect(card.style.willChange).toBe("")
+    })
+
+    test("a node that follows another with its layoutId gets no will-change", async () => {
+        function Shared() {
+            const [state, setState] = useState(false)
+            toggle = () => setState(true)
+            const transition = {
+                layout: { type: "tween" as const, ease: "linear" as const, duration: 1 },
+            }
+            return (
+                <>
+                    <motion.div
+                        className="card first"
+                        layoutId="radius"
+                        data-moved="false"
+                        data-top={0}
+                        transition={transition}
+                    />
+                    {state && (
+                        <motion.div
+                            className="card second"
+                            layoutId="radius"
+                            data-moved="true"
+                            data-top={0}
+                            transition={transition}
+                            style={{ borderRadius: 10 }}
+                        />
+                    )}
+                </>
+            )
+        }
+        render(<Shared />)
+        await frames(2)
+        await act(async () => toggle())
+        await frames(10)
+        const first = document.querySelector<HTMLElement>(".first")!
+        expect(first.style.transform).toContain("scale")
+        expect(first.style.borderTopLeftRadius).not.toBe("")
+        expect(willChanges("first")).toEqual([""])
+        expect(willChanges("second")).toEqual([""])
+    })
+
+    test("a will-change set in style is left alone", async () => {
+        await animate(3, "opacity")
+        const cards = document.querySelectorAll<HTMLElement>(".card")
+        for (const { style } of cards) expect(style.willChange).toBe("opacity")
+        await frames(70)
+        for (const { style } of cards) expect(style.willChange).toBe("opacity")
+    })
+
     test("finished nodes give their place in the budget back", async () => {
         render(
             <>
@@ -527,30 +530,4 @@ describe("layer budget", () => {
         expect(new Set(willChanges("second"))).toEqual(new Set(["transform"]))
     })
 
-    test("a will-change set in style gains transform while the node moves, and is restored", async () => {
-        await animate(3, "opacity")
-        const cards = document.querySelectorAll<HTMLElement>(".card")
-        for (const { style } of cards)
-            expect(style.willChange).toBe("opacity, transform")
-        await frames(70)
-        for (const { style } of cards) expect(style.willChange).toBe("opacity")
-    })
-
-    test("a will-change with transform set in style is left alone", async () => {
-        await animate(3, "transform, opacity")
-        const cards = document.querySelectorAll<HTMLElement>(".card")
-        for (const { style } of cards)
-            expect(style.willChange).toBe("transform, opacity")
-        await frames(70)
-        for (const { style } of cards)
-            expect(style.willChange).toBe("transform, opacity")
-    })
-
-    test("a will-change of auto set in style counts as none", async () => {
-        await animate(3, "auto")
-        const cards = document.querySelectorAll<HTMLElement>(".card")
-        for (const { style } of cards) expect(style.willChange).toBe("transform")
-        await frames(70)
-        for (const { style } of cards) expect(style.willChange).toBe("auto")
-    })
 })

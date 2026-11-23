@@ -47,6 +47,8 @@ import {
 } from "../animation/layout-velocity"
 import {
     compositorLayers,
+    isRepainting,
+    markRepaint,
     transformGroups,
 } from "../../animation/waapi/transforms/groups"
 import { copyAxisDeltaInto, copyAxisInto, copyBoxInto } from "../geometry/copy"
@@ -114,8 +116,7 @@ const animationTarget = 1000
  * little, so past this the nodes that start move without one.
  *
  * A node keeps what it starts with until it stops, as adding or removing
- * layers mid-animation costs a frame. A node whose animation stays far
- * outside the viewport never gets a layer, and doesn't use the budget.
+ * layers mid-animation costs a frame.
  *
  * It's will-change rather than translate3d as Chrome paints a translate3d
  * layer again whenever its sub-pixel offset changes, and every node rather
@@ -131,22 +132,25 @@ const starting: IProjectionNode[] = []
  * frame that the node's scale does. The node repaints on each of those
  * frames, so a layer would only add its cost.
  */
-const repaints = ({
-    projectionDelta,
-    treeScale,
-    animationValues,
-    latestValues,
-}: IProjectionNode) => {
+const isCorrecting = (node: IProjectionNode) => {
+    const { projectionDelta, treeScale } = node
     if (
         projectionDelta!.x.scale * treeScale!.x !== 1 ||
         projectionDelta!.y.scale * treeScale!.y !== 1
     ) {
-        const values = animationValues || latestValues
+        const values = node.animationValues || node.latestValues
         for (const key in scaleCorrectors) {
             if (values[key] !== undefined) return true
         }
     }
 }
+
+/**
+ * Whether a node repaints on every frame, for a corrected value or for
+ * another style that animates on it (see repaintLimit).
+ */
+const repaints = (node: IProjectionNode) =>
+    isCorrecting(node) || isRepainting(node.instance as object)
 
 /**
  * A layoutRoot always projects, so a node moves while it has a target. One
@@ -158,7 +162,7 @@ const countLayer = (node: IProjectionNode) => {
     if (!((node.relativeTarget || node.targetDelta) && node.layout)) {
         node.hasLayer = undefined
     } else if (node.hasLayer) {
-        layers++
+        repaints(node) ? (node.hasLayer = false) : layers++
     } else if (
         node.hasLayer === undefined &&
         projectionDelta &&
@@ -169,39 +173,6 @@ const countLayer = (node: IProjectionNode) => {
         repaints(node) ? (node.hasLayer = false) : starting.push(node)
     }
 }
-
-/**
- * Whether a node's boxes aren't where the page draws it: in a scrolling
- * or fixed element, or moved by a transform.
- */
-const hasOwnSpace = (node: IProjectionNode) =>
-    !!(
-        node.scroll?.wasRoot ||
-        node.options.layoutScroll ||
-        hasTransform(node.latestValues)
-    )
-
-/**
- * Whether the boxes a node moves between, its target as it starts and its
- * layout, come within a viewport of the viewport. A node with boxes the
- * page doesn't draw as they are counts as in view.
- */
-const isAxisInView = (from: Axis, to: Axis, scroll: number, size: number) =>
-    Math.max(from.max, to.max) > scroll - size &&
-    Math.min(from.min, to.min) < scroll + size * 2
-
-const isInView = (
-    node: IProjectionNode,
-    x: number,
-    y: number,
-    width: number,
-    height: number
-) =>
-    !node.target ||
-    hasOwnSpace(node) ||
-    node.path.some((ancestor, i) => !!i && hasOwnSpace(ancestor)) ||
-    (isAxisInView(node.target.x, node.layout!.layoutBox.x, x, width) &&
-        isAxisInView(node.target.y, node.layout!.layoutBox.y, y, height))
 
 let id = 0
 
@@ -1169,20 +1140,8 @@ export function createProjectionNode<I>({
             layers = compositorLayers
             this.nodes!.forEach(countLayer)
             if (starting.length) {
-                const { x, y } = this.scroll?.offset || { x: 0, y: 0 }
-                const { innerWidth, innerHeight } = window
-                const inView = starting.filter(
-                    (node) =>
-                        (node.hasLayer = isInView(
-                            node,
-                            x,
-                            y,
-                            innerWidth,
-                            innerHeight
-                        ))
-                )
-                layers + inView.length > layerBudget &&
-                    inView.forEach((node) => (node.hasLayer = false))
+                const fits = layers + starting.length <= layerBudget
+                starting.forEach((node) => (node.hasLayer = fits))
                 starting.length = 0
             }
 
@@ -2632,27 +2591,17 @@ export function createProjectionNode<I>({
 
             /**
              * Give this element a layer while it has a projection
-             * transform (see layerBudget), and take it away after. A
-             * will-change of the element's own gains transform, unless
-             * it has it, and is put back after.
+             * transform (see layerBudget), and take it away after. An
+             * element with a will-change of its own keeps that.
              */
             const setLayer = (isLayer?: boolean) => {
-                const own =
-                    resolveMotionValue(styleProp?.willChange) ||
-                    this.latestValues.willChange ||
-                    ""
                 if (
                     (isLayer || this.wroteLayer) &&
-                    !`${own}`.includes("transform")
+                    !styleProp?.willChange &&
+                    !this.latestValues.willChange
                 ) {
                     this.wroteLayer = isLayer
-                    write(
-                        "willChange",
-                        isLayer
-                            ? (own && own !== "auto" ? own + ", " : "") +
-                                  "transform"
-                            : own
-                    )
+                    write("willChange", isLayer ? "transform" : "")
                 }
             }
 
@@ -2771,6 +2720,14 @@ export function createProjectionNode<I>({
                     ? valuesToRender.opacityExit
                     : 0
             )
+
+            /**
+             * Corrected values that change repaint this element, so it
+             * counts towards the elements that repaint (see repaintLimit).
+             */
+            transform !== "none" &&
+                isCorrecting(this) &&
+                markRepaint(this.instance as object)
 
             /**
              * Apply scale correction
