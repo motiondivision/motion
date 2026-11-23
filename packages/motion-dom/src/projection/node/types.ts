@@ -100,6 +100,7 @@ export interface IProjectionNode<I = unknown> {
     blockUpdate(): void
     unblockUpdate(): void
     isUpdating: boolean
+    pageBoxes?: Map<IProjectionNode, Box>
     needsReset: boolean
     written: ResolvedValues
     prepareFlush(node: any): void
