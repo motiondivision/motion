@@ -42,16 +42,24 @@ export function inView(
     onStart = bindToScope(onStart)
 
     const activeIntersections = new WeakMap<Element, ViewChangeHandler>()
-    const shared = getObserver({
+    const options = {
         root: root as Element | Document | undefined,
         rootMargin,
         threshold: typeof amount === "number" ? amount : thresholds[amount],
-    })
+    }
 
     /**
-     * One handler for every element, so observing many costs no closure
-     * each.
+     * One element, as useInView observes, shares an observer with others
+     * that use the same settings, so many calls don't each make one. Many
+     * elements in one call already share this call's own observer.
      */
+    const shared = elements.length === 1 && getObserver(options)
+
+    const stop = (element: Element) =>
+        shared
+            ? unobserve(shared, element, onIntersectionChange)
+            : observer!.unobserve(element)
+
     const onIntersectionChange = (entry: IntersectionObserverEntry) => {
         const element = entry.target
         const onEnd = activeIntersections.get(element)
@@ -66,20 +74,25 @@ export function inView(
             const newOnEnd = onStart(element, entry)
             typeof newOnEnd === "function"
                 ? activeIntersections.set(element, newOnEnd)
-                : unobserve(shared, element, onIntersectionChange)
+                : stop(element)
         } else if (typeof onEnd === "function") {
             onEnd(entry)
             activeIntersections.delete(element)
         }
     }
 
-    for (let i = 0; i < elements.length; i++) {
-        observe(shared, elements[i], onIntersectionChange)
-    }
+    const observer = shared
+        ? undefined
+        : new IntersectionObserver(
+              (entries) => entries.forEach(onIntersectionChange),
+              options
+          )
 
-    return addToScope(() => {
-        for (let i = 0; i < elements.length; i++) {
-            unobserve(shared, elements[i], onIntersectionChange)
-        }
-    })
+    shared
+        ? observe(shared, elements[0], onIntersectionChange)
+        : elements.forEach((element) => observer!.observe(element))
+
+    return addToScope(() =>
+        shared ? stop(elements[0]) : observer!.disconnect()
+    )
 }
