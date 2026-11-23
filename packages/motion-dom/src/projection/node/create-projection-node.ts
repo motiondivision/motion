@@ -186,7 +186,12 @@ function getClosestProjectingNode(
 ): IProjectionNode | undefined {
     if (!visualElement) return undefined
 
-    return visualElement.options.allowProjection !== false
+    /**
+     * Skip drag's measure-only nodes: they aren't in the projection tree, so
+     * a layout node can't be their child.
+     */
+    return visualElement.options.allowProjection !== false &&
+        !visualElement.projection?.isMeasureOnly
         ? visualElement.projection
         : getClosestProjectingNode(visualElement.parent)
 }
@@ -224,6 +229,14 @@ export function createProjectionNode<I>({
             props: MotionNodeOptions,
             initialPromotionConfig?: InitialPromotionConfig
         ) {
+            const prevProjection = visualElement.projection
+
+            /**
+             * Only a drag measure-only node can be replaced, e.g. when
+             * domLayout or domMax loads after domDrag.
+             */
+            if (prevProjection && !prevProjection.isMeasureOnly) return
+
             const {
                 layoutId,
                 layout,
@@ -262,6 +275,13 @@ export function createProjectionNode<I>({
                 layoutRoot,
                 layoutAnchor,
             })
+
+            if (prevProjection?.isMeasureOnly) {
+                prevProjection.upgrade?.([projection])
+            }
+            if (visualElement.current && !projection.instance) {
+                projection.mount(visualElement.current)
+            }
 
             /**
              * This node will take over from its layoutId's current lead, so snapshot

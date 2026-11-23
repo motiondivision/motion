@@ -90,6 +90,7 @@ export {
     parseAnimateLayoutArgs,
 } from "./layout/LayoutAnimationBuilder"
 export * from "./gestures/drag"
+export { createDragMeasureNode } from "./gestures/drag/measure-node"
 export * from "./gestures/drag/state/is-active"
 export * from "./gestures/drag/state/set-active"
 export * from "./gestures/drag/types"
