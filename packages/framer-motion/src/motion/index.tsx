@@ -1,9 +1,9 @@
 "use client"
 
-import { rootProjectionNode } from "motion-dom"
+import { isMotionValue, rootProjectionNode } from "motion-dom"
 import { invariant, warnOnce } from "motion-utils"
 import * as React from "react"
-import { forwardRef, useContext } from "react"
+import { forwardRef, memo, useContext, useEffect, useReducer } from "react"
 import { LayoutGroupContext } from "../context/LayoutGroupContext"
 import { LazyContext } from "../context/LazyContext"
 import { MotionConfigContext } from "../context/MotionConfigContext"
@@ -17,6 +17,7 @@ import { useHTMLVisualState } from "../render/html/use-html-visual-state"
 import { SVGRenderState } from "../render/svg/types"
 import { useSVGVisualState } from "../render/svg/use-svg-visual-state"
 import { CreateVisualElement } from "../render/types"
+import { isShallowEqual } from "../utils/is-shallow-equal"
 import { useConstant } from "../utils/use-constant"
 import { getInitializedFeatureDefinitions } from "./features/definitions"
 import { loadFeatures } from "./features/load-features"
@@ -133,6 +134,13 @@ export function createMotionComponent<
 
         const visualState = useVisualState(props, isStatic)
 
+        /**
+         * A static component renders its motion values' latest values, so
+         * it renders again when they change, as memo stops its parent's
+         * renders from reaching it.
+         */
+        isStatic && useRenderOnChange(props.style)
+
         if (!isStatic && typeof window !== "undefined") {
             /**
              * A development-only check. useVisualElement reads LazyContext
@@ -204,11 +212,42 @@ export function createMotionComponent<
             : `create(${Component.displayName ?? Component.name ?? ""})`
     }`
 
-    const ForwardRefMotionComponent = forwardRef(MotionDOMComponent as any)
+    /**
+     * A parent re-rendering with props equal to the last render's (inline
+     * objects like style and animate compared a level deeper) skips this
+     * component. Presence, variants and config arrive through context,
+     * which still re-renders it. Layout and drag measure on every render,
+     * so those always render.
+     */
+    const ForwardRefMotionComponent = memo(
+        forwardRef(MotionDOMComponent as any),
+        arePropsEqual
+    )
     ;(ForwardRefMotionComponent as any)[motionComponentSymbol] = Component
 
-    return ForwardRefMotionComponent as MotionComponent<TagName, Props>
+    return ForwardRefMotionComponent as unknown as MotionComponent<
+        TagName,
+        Props
+    >
 }
+
+function useRenderOnChange(style: MotionProps["style"]) {
+    const [, render] = useReducer((n: number) => n + 1, 0)
+    useEffect(() => {
+        const stops: VoidFunction[] = []
+        for (const key in style) {
+            const value = style[key as keyof typeof style]
+            isMotionValue(value) && stops.push(value.on("change", render))
+        }
+        return () => stops.forEach((stop) => stop())
+    })
+}
+
+const arePropsEqual = (prev: MotionProps, next: MotionProps) =>
+    !next.layout &&
+    next.layoutId === undefined &&
+    !next.drag &&
+    isShallowEqual(prev, next, 1)
 
 function useLayoutId({ layoutId }: MotionProps) {
     const layoutGroupId = useContext(LayoutGroupContext).id

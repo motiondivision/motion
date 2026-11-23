@@ -115,13 +115,18 @@ describe("as input/output range", () => {
 
         await nextMicrotask()
         expect(container.firstChild).toHaveStyle("opacity: 0.2")
+        /**
+         * The motion component's props don't change, so it doesn't
+         * re-render. The transformed value is written in the next frame,
+         * before the browser paints.
+         */
         rerender(<Component b={50} />)
         rerender(<Component b={50} />)
-        await nextMicrotask()
+        await nextFrame()
         expect(container.firstChild).toHaveStyle("opacity: 0.4")
         rerender(<Component b={50} d={0.5} />)
         rerender(<Component b={50} d={0.5} />)
-        await nextMicrotask()
+        await nextFrame()
         expect(container.firstChild).toHaveStyle("opacity: 0.2")
         x.set(40)
 
@@ -197,13 +202,13 @@ test("can be re-pointed to another `MotionValue`", async () => {
     const { container, rerender } = render(<Component target={a} />)
     rerender(<Component target={b} />)
 
-    await nextMicrotask()
+    await nextFrame()
     expect(container.firstChild as Element).toHaveStyle(
         "transform: translateX(4px)"
     )
 
     rerender(<Component target={a} />)
-    await nextMicrotask()
+    await nextFrame()
     expect(container.firstChild as Element).toHaveStyle(
         "transform: translateX(2px)"
     )
