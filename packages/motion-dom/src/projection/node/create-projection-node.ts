@@ -477,9 +477,10 @@ export function createProjectionNode<I>({
 
         /**
          * The page boxes of transformed ancestors, kept while the root
-         * measures its nodes before and after an update.
+         * measures its nodes before and after an update. Only the root
+         * sets it, so it's declared rather than made on every node.
          */
-        pageBoxes?: Map<IProjectionNode, Box>
+        declare pageBoxes?: Map<IProjectionNode, Box>
 
         /**
          * If this is an SVG element we currently disable projection transforms
