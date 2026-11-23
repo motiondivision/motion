@@ -1,5 +1,10 @@
-import { act, createRef, useState } from "react"
-import { frame, motionValue, visualElementStore } from "motion-dom"
+import { act, createRef, StrictMode, useState } from "react"
+import {
+    frame,
+    motionValue,
+    VisualElement,
+    visualElementStore,
+} from "motion-dom"
 import { motion } from "../../render/components/motion"
 import { AnimatePresence } from "../../components/AnimatePresence"
 import { useTransform } from "../../value/use-transform"
@@ -241,5 +246,29 @@ describe("unmounting idle motion values", () => {
         rerender(<List isVisible={false} />)
 
         expect(read).not.toHaveBeenCalled()
+    })
+})
+
+describe("effects that run again without a render", () => {
+    /**
+     * Strict Mode runs a commit's effects twice, and a revealed <Activity>
+     * runs them again, without a render. What's on screen may have been
+     * reset, so each run renders in full rather than being skipped as an
+     * unchanged commit.
+     */
+    test("render in full each time under Strict Mode", async () => {
+        const scheduleRender = jest.spyOn(
+            VisualElement.prototype,
+            "scheduleRenderMicrotask"
+        )
+        render(
+            <StrictMode>
+                <motion.div animate={{ x: 100 }} />
+            </StrictMode>
+        )
+        await nextFrame()
+
+        expect(scheduleRender).toHaveBeenCalledTimes(2)
+        scheduleRender.mockRestore()
     })
 })

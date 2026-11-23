@@ -117,6 +117,12 @@ export function useVisualElement<
     const didCommit = useRef(false)
     const committedParentContext = useRef(parentContext)
 
+    /**
+     * Effects that run again without a render (Strict Mode, a revealed
+     * <Activity>) update in full, as what's on screen may have been reset.
+     */
+    let hasCommitted = false
+
     useInsertionEffect(() => {
         /**
          * Skip the update if the visual element was created with these props.
@@ -170,7 +176,8 @@ export function useVisualElement<
 
         window.MotionIsMounted = true
 
-        didCommit.current = visualElement.commit()
+        didCommit.current = visualElement.commit(hasCommitted)
+        hasCommitted = true
 
         /**
          * Ideally this function would always run in a useEffect.

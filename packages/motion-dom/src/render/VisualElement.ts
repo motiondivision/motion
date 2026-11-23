@@ -698,12 +698,14 @@ export abstract class VisualElement<
      * Update features and render after React commits. Skipped when the
      * props, presence and feature definitions are the ones of the last
      * commit, as features would do nothing and React wrote no styles.
-     * Returns whether it updated.
+     * `force` updates anyway, as when React runs a commit's effects again
+     * (Strict Mode, a revealed Activity). Returns whether it updated.
      */
-    commit() {
+    commit(force?: boolean) {
         const { props, presenceContext } = this
 
         if (
+            !force &&
             props === this.committedProps &&
             presenceContext === this.committedPresence &&
             featuresVersion === this.committedFeatures
