@@ -127,6 +127,28 @@ let layers = 0
 const starting: IProjectionNode[] = []
 
 /**
+ * A scale-corrected value, like borderRadius or boxShadow, changes on every
+ * frame that the node's scale does. The node repaints on each of those
+ * frames, so a layer would only add its cost.
+ */
+const repaints = ({
+    projectionDelta,
+    treeScale,
+    animationValues,
+    latestValues,
+}: IProjectionNode) => {
+    if (
+        projectionDelta!.x.scale * treeScale!.x !== 1 ||
+        projectionDelta!.y.scale * treeScale!.y !== 1
+    ) {
+        const values = animationValues || latestValues
+        for (const key in scaleCorrectors) {
+            if (values[key] !== undefined) return true
+        }
+    }
+}
+
+/**
  * A layoutRoot always projects, so a node moves while it has a target. One
  * that keeps its place in its parent has no transform to write, so it
  * doesn't start until it has one.
@@ -144,7 +166,7 @@ const countLayer = (node: IProjectionNode) => {
             treeScale!.x !== 1 ||
             treeScale!.y !== 1)
     ) {
-        starting.push(node)
+        repaints(node) ? (node.hasLayer = false) : starting.push(node)
     }
 }
 

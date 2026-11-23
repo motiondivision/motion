@@ -295,6 +295,50 @@ describe("layer budget", () => {
         }
     })
 
+    test("a node that changes size with a corrected border radius gets no will-change", async () => {
+        render(<Cards count={1} style={{ borderRadius: 10 }} />)
+        await frames(2)
+        await act(async () => toggle())
+        await frames(10)
+        const [card, child] = elements()
+        expect(card.style.willChange).toBe("")
+        expect(child.style.willChange).toBe("transform")
+    })
+
+    test("a node that changes size with a corrected box shadow gets no will-change", async () => {
+        render(
+            <Cards count={1} style={{ boxShadow: "0px 2px 4px #000" }} />
+        )
+        await frames(2)
+        await act(async () => toggle())
+        await frames(10)
+        expect(elements()[0].style.willChange).toBe("")
+    })
+
+    test("a node that only moves with a corrected border radius gets will-change", async () => {
+        render(<Cards count={1} still style={{ borderRadius: 10 }} />)
+        await frames(2)
+        await act(async () => toggle())
+        await frames(10)
+        expect(elements()[0].style.willChange).toBe("transform")
+    })
+
+    test("nodes with a corrected border radius don't use the budget", async () => {
+        render(<Cards count={250} style={{ borderRadius: 10 }} />)
+        await frames(2)
+        await act(async () => toggle())
+        await frames(10)
+        const all = elements()
+        expect(all.filter((el) => el.style.willChange).length).toBe(250)
+        expect(
+            all.every(
+                (el) =>
+                    el.style.willChange ===
+                    (el.className.includes("child") ? "transform" : "")
+            )
+        ).toBe(true)
+    })
+
     test("will-change is removed when another value of the node animates for longer", async () => {
         render(<Cards count={3} name="first" opacity={2} />)
         await frames(2)
