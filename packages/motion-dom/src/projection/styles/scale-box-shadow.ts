@@ -1,16 +1,33 @@
-import { complex } from "../../value/types/complex"
+import {
+    analyseComplexValue,
+    buildTransformer,
+    ComplexValues,
+} from "../../value/types/complex"
 import { mixNumber } from "../../utils/mix/number"
 import type { ScaleCorrectorDefinition } from "./types"
 
+/**
+ * The last shadow parsed. A shadow is usually static while its element's
+ * layout animates, so it's parsed once rather than every frame.
+ */
+let lastShadow: string | undefined
+let lastValues: ComplexValues
+let lastTemplate: (v: ComplexValues) => string
+
 export const correctBoxShadow: ScaleCorrectorDefinition = {
     correct: (latest: string, { treeScale, projectionDelta }) => {
-        const original = latest
-        const shadow = complex.parse(latest)
+        if (latest !== lastShadow) {
+            const info = analyseComplexValue(latest)
+            lastShadow = latest
+            lastValues = info.values
+            lastTemplate = buildTransformer(info)
+        }
 
         // TODO: Doesn't support multiple shadows
-        if (shadow.length > 5) return original
+        if (lastValues.length > 5) return latest
 
-        const template = complex.createTransformer(latest)
+        const shadow = lastValues.slice()
+        const template = lastTemplate
         const offset = typeof shadow[0] !== "number" ? 1 : 0
 
         // Calculate the overall context scale

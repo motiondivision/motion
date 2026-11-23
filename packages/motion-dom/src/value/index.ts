@@ -505,10 +505,14 @@ export class MotionValue<V = any> {
             MAX_VELOCITY_DELTA
         )
 
+        const { current, prevFrameValue } = this
+
         // Casts because of parseFloat's poor typing
         return velocityPerSecond(
-            parseFloat(this.current as any) -
-                parseFloat(this.prevFrameValue as any),
+            typeof current === "number" && typeof prevFrameValue === "number"
+                ? current - prevFrameValue
+                : parseFloat(current as any) -
+                      parseFloat(prevFrameValue as any),
             delta
         )
     }
