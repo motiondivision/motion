@@ -1,7 +1,8 @@
 "use client"
 
 import { RefObject, useEffect, useState } from "react"
-import { inView, InViewOptions } from "../render/dom/viewport"
+import { observeIntersection } from "../motion/features/viewport/observers"
+import type { InViewOptions } from "../render/dom/viewport"
 
 export interface UseInViewOptions
     extends Omit<InViewOptions, "root" | "amount"> {
@@ -32,19 +33,31 @@ export function useInView(
         const element = (observed.current = ref.current)
         if (!element || (once && isInView)) return
 
-        const onEnter = () => {
-            setInView(true)
-
-            return once ? undefined : () => setInView(false)
-        }
-
-        const options: InViewOptions = {
-            root: (root && root.current) || undefined,
-            margin,
-            amount,
-        }
-
-        return inView(element, onEnter, options)
+        /**
+         * Elements observed with the same settings share an observer, as
+         * whileInView's do, so many components don't each make one.
+         */
+        let isIntersecting = false
+        const stop = observeIntersection(
+            element,
+            {
+                root: (root && root.current) || undefined,
+                rootMargin: margin,
+                threshold:
+                    typeof amount === "number"
+                        ? amount
+                        : amount === "all"
+                        ? 1
+                        : 0,
+            },
+            (entry) => {
+                if (entry.isIntersecting === isIntersecting) return
+                isIntersecting = entry.isIntersecting
+                setInView(isIntersecting)
+                once && isIntersecting && stop()
+            }
+        )
+        return stop
     }, [root, ref, margin, once, amount, observed])
 
     /**

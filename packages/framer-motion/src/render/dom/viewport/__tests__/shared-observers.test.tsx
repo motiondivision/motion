@@ -1,4 +1,5 @@
-import { createRef } from "react"
+import { act, createRef } from "react"
+import { useInView } from "../../../../utils/use-in-view"
 import { render } from "../../../../jest.setup"
 import { motion } from "../../../components/motion"
 import { inView } from ".."
@@ -37,64 +38,62 @@ class MockObserver {
 const observing = (element: Element) =>
     instances.filter((instance) => instance.observed.has(element))
 
-describe("inView", () => {
-    beforeEach(() => {
-        document.body.innerHTML = ""
-    })
-
-    test("calls with the same options share one IntersectionObserver", () => {
-        const elements = Array.from({ length: 5 }, () =>
-            document.body.appendChild(document.createElement("div"))
-        )
+describe("useInView", () => {
+    test("components with the same options share one IntersectionObserver", () => {
         const before = instances.length
-
-        const stops = elements.map((element) => inView(element, () => {}))
+        const refs = Array.from({ length: 5 }, () =>
+            createRef<HTMLDivElement>()
+        )
+        const Item = ({ index }: { index: number }) => {
+            useInView(refs[index])
+            return <div ref={refs[index]} />
+        }
+        const { unmount } = render(
+            <>
+                {refs.map((_, i) => (
+                    <Item key={i} index={i} />
+                ))}
+            </>
+        )
 
         expect(instances.length - before).toBeLessThanOrEqual(1)
-        elements.forEach((element) => expect(observing(element).length).toBe(1))
+        refs.forEach((ref) => expect(observing(ref.current!).length).toBe(1))
 
-        stops.forEach((stop) => stop())
+        const elements = refs.map((ref) => ref.current!)
+        unmount()
         elements.forEach((element) => expect(observing(element).length).toBe(0))
     })
 
-    test("different options get different observers", () => {
-        const element = document.body.appendChild(document.createElement("div"))
-        const stopA = inView(element, () => {}, { amount: 0.25 })
-        const stopB = inView(element, () => {}, { amount: 0.75 })
+    test("is told when its element enters and leaves, and stops after entering once", async () => {
+        const ref = createRef<HTMLDivElement>()
+        const onceRef = createRef<HTMLDivElement>()
+        const results: boolean[] = []
+        const Component = () => {
+            const isInView = useInView(ref)
+            useInView(onceRef, { once: true })
+            results.push(isInView)
+            return (
+                <>
+                    <div ref={ref} />
+                    <div ref={onceRef} />
+                </>
+            )
+        }
+        render(<Component />)
 
-        expect(observing(element).length).toBe(2)
-        stopA()
-        stopB()
+        const [observer] = observing(ref.current!)
+        await act(async () => observer.trigger(ref.current!, true))
+        await act(async () => observer.trigger(ref.current!, false))
+        expect(results[results.length - 1]).toBe(false)
+        expect(results).toContain(true)
+
+        const [onceObserver] = observing(onceRef.current!)
+        await act(async () => onceObserver.trigger(onceRef.current!, true))
+        expect(observing(onceRef.current!).length).toBe(0)
     })
+})
 
-    test("two calls on one element are both told when it enters and leaves", () => {
-        const element = document.body.appendChild(document.createElement("div"))
-        const leaveA = jest.fn()
-        const leaveB = jest.fn()
-        const startA = jest.fn(() => leaveA)
-        const startB = jest.fn(() => leaveB)
-
-        const stopA = inView(element, startA)
-        const stopB = inView(element, startB)
-        const [observer] = observing(element)
-
-        observer.trigger(element, true)
-        expect(startA).toHaveBeenCalledTimes(1)
-        expect(startB).toHaveBeenCalledTimes(1)
-
-        observer.trigger(element, false)
-        expect(leaveA).toHaveBeenCalledTimes(1)
-        expect(leaveB).toHaveBeenCalledTimes(1)
-
-        stopA()
-        observer.trigger(element, true)
-        expect(startA).toHaveBeenCalledTimes(1)
-        expect(startB).toHaveBeenCalledTimes(2)
-
-        stopB()
-        expect(observing(element).length).toBe(0)
-    })
-
+describe("inView", () => {
     test("an onStart without a leave callback stops observing only its element", () => {
         const a = document.body.appendChild(document.createElement("div"))
         const b = document.body.appendChild(document.createElement("div"))
