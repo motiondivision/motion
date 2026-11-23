@@ -1,8 +1,14 @@
 type IntersectionHandler = (entry: IntersectionObserverEntry) => void
 
-interface SharedObserver {
+/**
+ * An element's handler, or its handlers once there's more than one, so
+ * the usual single handler costs no Set.
+ */
+type ElementHandlers = IntersectionHandler | Set<IntersectionHandler>
+
+export interface SharedObserver {
     observer: IntersectionObserver
-    handlers: WeakMap<Element, Set<IntersectionHandler>>
+    handlers: WeakMap<Element, ElementHandlers>
 }
 
 /**
@@ -15,7 +21,7 @@ const observers = new WeakMap<
     { [key: string]: SharedObserver }
 >()
 
-function getObserver({ root, ...options }: IntersectionObserverInit) {
+export function getObserver({ root, ...options }: IntersectionObserverInit) {
     const lookupRoot = root || document
 
     let rootObservers = observers.get(lookupRoot)
@@ -24,16 +30,19 @@ function getObserver({ root, ...options }: IntersectionObserverInit) {
     const key = JSON.stringify(options)
 
     if (!rootObservers[key]) {
-        const handlers = new WeakMap<Element, Set<IntersectionHandler>>()
+        const handlers = new WeakMap<Element, ElementHandlers>()
         rootObservers[key] = {
             handlers,
             observer: new IntersectionObserver(
-                (entries) =>
-                    entries.forEach((entry) =>
-                        handlers
-                            .get(entry.target)
-                            ?.forEach((handler) => handler(entry))
-                    ),
+                (entries) => {
+                    for (let i = 0; i < entries.length; i++) {
+                        const entry = entries[i]
+                        const handler = handlers.get(entry.target)
+                        typeof handler === "function"
+                            ? handler(entry)
+                            : handler?.forEach((h) => h(entry))
+                    }
+                },
                 { root, ...options }
             ),
         }
@@ -42,34 +51,57 @@ function getObserver({ root, ...options }: IntersectionObserverInit) {
     return rootObservers[key]
 }
 
-export function observeIntersection(
+export function observe(
+    { observer, handlers }: SharedObserver,
     element: Element,
-    options: IntersectionObserverInit,
     handler: IntersectionHandler
 ) {
-    const { observer, handlers } = getObserver(options)
+    const current = handlers.get(element)
 
-    let elementHandlers = handlers.get(element)
-    if (elementHandlers) {
+    if (current) {
         /**
          * Observe the element again, so this handler is told whether it's
          * in view. Handlers already watching it ignore the unchanged entry.
          */
         observer.unobserve(element)
+        typeof current === "function"
+            ? handlers.set(element, new Set([current, handler]))
+            : current.add(handler)
     } else {
-        handlers.set(element, (elementHandlers = new Set()))
+        handlers.set(element, handler)
     }
-    elementHandlers.add(handler)
-    observer.observe(element)
 
-    return () => {
-        elementHandlers!.delete(handler)
-        if (
-            !elementHandlers!.size &&
-            handlers.get(element) === elementHandlers
-        ) {
-            handlers.delete(element)
-            observer.unobserve(element)
-        }
+    observer.observe(element)
+}
+
+export function unobserve(
+    { observer, handlers }: SharedObserver,
+    element: Element,
+    handler: IntersectionHandler
+) {
+    const current = handlers.get(element)
+    if (!current) return
+
+    /**
+     * A handler that's no longer the element's, as after the element was
+     * observed again, leaves it alone.
+     */
+    if (typeof current === "function") {
+        if (current !== handler) return
+    } else if (!current.delete(handler) || current.size) {
+        return
     }
+
+    handlers.delete(element)
+    observer.unobserve(element)
+}
+
+export function observeIntersection(
+    element: Element,
+    options: IntersectionObserverInit,
+    handler: IntersectionHandler
+) {
+    const shared = getObserver(options)
+    observe(shared, element, handler)
+    return () => unobserve(shared, element, handler)
 }

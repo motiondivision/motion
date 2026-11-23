@@ -4,7 +4,11 @@ import {
     ElementOrSelector,
     resolveElements,
 } from "motion-dom"
-import { observeIntersection } from "../../../motion/features/viewport/observers"
+import {
+    getObserver,
+    observe,
+    unobserve,
+} from "../../../motion/features/viewport/observers"
 
 export type ViewChangeHandler = (entry: IntersectionObserverEntry) => void
 
@@ -38,34 +42,44 @@ export function inView(
     onStart = bindToScope(onStart)
 
     const activeIntersections = new WeakMap<Element, ViewChangeHandler>()
-    const options = {
+    const shared = getObserver({
         root: root as Element | Document | undefined,
         rootMargin,
         threshold: typeof amount === "number" ? amount : thresholds[amount],
-    }
-
-    const stops = elements.map((element) => {
-        const stop = observeIntersection(element, options, (entry) => {
-            const onEnd = activeIntersections.get(element)
-
-            /**
-             * If there's no change to the intersection, we don't need to
-             * do anything here.
-             */
-            if (entry.isIntersecting === Boolean(onEnd)) return
-
-            if (entry.isIntersecting) {
-                const newOnEnd = onStart(element, entry)
-                typeof newOnEnd === "function"
-                    ? activeIntersections.set(element, newOnEnd)
-                    : stop()
-            } else if (typeof onEnd === "function") {
-                onEnd(entry)
-                activeIntersections.delete(element)
-            }
-        })
-        return stop
     })
 
-    return addToScope(() => stops.forEach((stop) => stop()))
+    /**
+     * One handler for every element, so observing many costs no closure
+     * each.
+     */
+    const onIntersectionChange = (entry: IntersectionObserverEntry) => {
+        const element = entry.target
+        const onEnd = activeIntersections.get(element)
+
+        /**
+         * If there's no change to the intersection, we don't need to
+         * do anything here.
+         */
+        if (entry.isIntersecting === Boolean(onEnd)) return
+
+        if (entry.isIntersecting) {
+            const newOnEnd = onStart(element, entry)
+            typeof newOnEnd === "function"
+                ? activeIntersections.set(element, newOnEnd)
+                : unobserve(shared, element, onIntersectionChange)
+        } else if (typeof onEnd === "function") {
+            onEnd(entry)
+            activeIntersections.delete(element)
+        }
+    }
+
+    for (let i = 0; i < elements.length; i++) {
+        observe(shared, elements[i], onIntersectionChange)
+    }
+
+    return addToScope(() => {
+        for (let i = 0; i < elements.length; i++) {
+            unobserve(shared, elements[i], onIntersectionChange)
+        }
+    })
 }
