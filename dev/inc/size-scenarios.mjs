@@ -13,6 +13,11 @@
  *   yarn size --attr motion-div [--top 60]
  *   yarn size --dump m-div [--out /tmp/m-div.js]
  *
+ * A scenario that reaches an `import()` is split: its size is the first
+ * load (the entry and the chunks it imports statically), "all gz" adds the
+ * on-demand chunks, and both have a budget. esbuild runs without splitting,
+ * so its figure is always the whole graph.
+ *
  * Gzip is zlib's default level, as in dev/inc/bundlesize.mjs. Budgets are
  * gzip bytes in size-budgets.json. Rollup + terser mirrors
  * packages/framer-motion/rollup.size.config.mjs. esbuild is a second,
@@ -227,19 +232,41 @@ async function warmCache() {
     await bundle.close()
 }
 
+/**
+ * A scenario with an `import()` in its graph gives more than one chunk.
+ * Its size is what the entry loads at the start: the entry chunk and every
+ * chunk it reaches through static imports. `allGz` counts the on-demand
+ * chunks too.
+ */
 async function bundleRollup(code, withModules = false) {
     const bundle = await rollup(rollupOptions(code))
-    const { output } = await bundle.generate({ format: "es" })
+    const { output } = await bundle.generate({ format: "es", dir: "out" })
     await bundle.close()
-    const chunk = output[0]
-    const buf = Buffer.from(chunk.code)
-    const [gz, br] = await Promise.all([gzip(buf), brotli(buf)])
-    const result = { min: buf.length, gz, br, code: chunk.code }
-    if (withModules) {
-        result.modules = Object.entries(chunk.modules).map(([id, m]) => [
-            id,
-            m.renderedLength,
-        ])
+    const chunks = Object.fromEntries(output.map((c) => [c.fileName, c]))
+    const first = new Set()
+    const walk = (fileName) => {
+        if (first.has(fileName)) return
+        first.add(fileName)
+        chunks[fileName].imports.filter((name) => chunks[name]).forEach(walk)
+    }
+    walk(output.find((chunk) => chunk.isEntry).fileName)
+
+    const result = { min: 0, gz: 0, br: 0, allGz: 0, code: "" }
+    if (withModules) result.modules = []
+    for (const chunk of output) {
+        const buf = Buffer.from(chunk.code)
+        const [gz, br] = await Promise.all([gzip(buf), brotli(buf)])
+        result.allGz += gz
+        if (!first.has(chunk.fileName)) continue
+        result.min += buf.length
+        result.gz += gz
+        result.br += br
+        result.code += chunk.code
+        if (withModules) {
+            for (const [id, m] of Object.entries(chunk.modules)) {
+                result.modules.push([id, m.renderedLength])
+            }
+        }
     }
     return result
 }
@@ -353,6 +380,11 @@ function printTable(rows) {
     }
 }
 
+/**
+ * Budget key for a scenario's on-demand chunks plus its first load.
+ */
+const allSuffix = " (all chunks)"
+
 const toBudget = (gz) => Math.ceil((gz * 1.01) / 50) * 50
 
 /**
@@ -361,12 +393,22 @@ const toBudget = (gz) => Math.ceil((gz * 1.01) / 50) * 50
 function check(results, codes, budgets) {
     const failures = []
 
-    for (const [name, { gz }] of Object.entries(results)) {
+    for (const [name, { gz, allGz }] of Object.entries(results)) {
         const budget = budgets[name]
+        const allBudget = budgets[name + allSuffix]
         if (budget === undefined) {
             failures.push(`${name} has no budget in size-budgets.json`)
         } else if (gz > budget) {
             failures.push(`${name} is ${gz} B gz (${budget} B allowed)`)
+        }
+        if (allGz !== gz && allBudget === undefined) {
+            failures.push(
+                `${name} has on-demand chunks but no "${name + allSuffix}" budget`
+            )
+        } else if (allGz > allBudget) {
+            failures.push(
+                `${name + allSuffix} is ${allGz} B gz (${allBudget} B allowed)`
+            )
         }
     }
 
@@ -449,6 +491,7 @@ async function main() {
             min: r.min,
             gz: r.gz,
             br: r.br,
+            allGz: r.allGz,
             esbuildMin: e.min,
             esbuildGz: e.gz,
         }
@@ -462,6 +505,7 @@ async function main() {
             "min kB",
             "gz kB",
             "br kB",
+            "all gz kB",
             "esb gz kB",
             "budget kB",
             ...(base ? ["Δgz B", "Δmin B"] : []),
@@ -474,6 +518,7 @@ async function main() {
             kb(r.min),
             kb(r.gz),
             kb(r.br),
+            r.allGz === r.gz ? "-" : kb(r.allGz),
             kb(r.esbuildGz),
             budgets[name] ? kb(budgets[name]) : "-",
             ...(base
@@ -493,12 +538,15 @@ async function main() {
     }
 
     if (flag("--update-budgets")) {
-        for (const [name, { gz }] of Object.entries(results)) {
+        for (const [name, { gz, allGz }] of Object.entries(results)) {
             budgets[name] = toBudget(gz)
+            if (allGz !== gz) budgets[name + allSuffix] = toBudget(allGz)
         }
         const ordered = {}
         for (const name of Object.keys(scenarios)) {
-            if (budgets[name] !== undefined) ordered[name] = budgets[name]
+            for (const key of [name, name + allSuffix]) {
+                if (budgets[key] !== undefined) ordered[key] = budgets[key]
+            }
         }
         fs.writeFileSync(budgetsPath, JSON.stringify(ordered, null, 4) + "\n")
         console.log(`\nWrote ${budgetsPath}`)
