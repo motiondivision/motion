@@ -116,7 +116,8 @@ const animationTarget = 1000
  * little, so past this the nodes that start move without one.
  *
  * A node keeps what it starts with until it stops, as adding or removing
- * layers mid-animation costs a frame.
+ * layers mid-animation costs a frame. A node whose animation stays far
+ * outside the viewport never gets a layer, and doesn't use the budget.
  *
  * It's will-change rather than translate3d as Chrome paints a translate3d
  * layer again whenever its sub-pixel offset changes, and every node rather
@@ -173,6 +174,39 @@ const countLayer = (node: IProjectionNode) => {
         repaints(node) ? (node.hasLayer = false) : starting.push(node)
     }
 }
+
+/**
+ * Whether a node's boxes aren't where the page draws it: in a scrolling
+ * or fixed element, or moved by a transform.
+ */
+const hasOwnSpace = (node: IProjectionNode) =>
+    !!(
+        node.scroll?.wasRoot ||
+        node.options.layoutScroll ||
+        hasTransform(node.latestValues)
+    )
+
+/**
+ * Whether the boxes a node moves between, its target as it starts and its
+ * layout, come within a viewport of the viewport. A node with boxes the
+ * page doesn't draw as they are counts as in view.
+ */
+const isAxisInView = (from: Axis, to: Axis, scroll: number, size: number) =>
+    Math.max(from.max, to.max) > scroll - size &&
+    Math.min(from.min, to.min) < scroll + size * 2
+
+const isInView = (
+    node: IProjectionNode,
+    x: number,
+    y: number,
+    width: number,
+    height: number
+) =>
+    !node.target ||
+    hasOwnSpace(node) ||
+    node.path.some((ancestor, i) => !!i && hasOwnSpace(ancestor)) ||
+    (isAxisInView(node.target.x, node.layout!.layoutBox.x, x, width) &&
+        isAxisInView(node.target.y, node.layout!.layoutBox.y, y, height))
 
 let id = 0
 
@@ -1140,8 +1174,20 @@ export function createProjectionNode<I>({
             layers = compositorLayers
             this.nodes!.forEach(countLayer)
             if (starting.length) {
-                const fits = layers + starting.length <= layerBudget
-                starting.forEach((node) => (node.hasLayer = fits))
+                const { x, y } = this.scroll?.offset || { x: 0, y: 0 }
+                const { innerWidth, innerHeight } = window
+                const inView = starting.filter(
+                    (node) =>
+                        (node.hasLayer = isInView(
+                            node,
+                            x,
+                            y,
+                            innerWidth,
+                            innerHeight
+                        ))
+                )
+                layers + inView.length > layerBudget &&
+                    inView.forEach((node) => (node.hasLayer = false))
                 starting.length = 0
             }
 

@@ -27,6 +27,19 @@
             #list.moved {
                 flex-direction: row-reverse;
             }
+            #list.small {
+                flex-wrap: wrap;
+                gap: 2px;
+            }
+            #list.small .card {
+                width: 10px;
+                height: 10px;
+                padding: 0;
+            }
+            #list.small .child {
+                width: 4px;
+                height: 4px;
+            }
             #list.grow.moved .card {
                 width: 150px;
             }
@@ -41,6 +54,9 @@
             transform while it moves, and loses it when the animation ends.
             ?count sets the number of cards. Each card and its child both
             animate, so 201 cards is past the budget of 400 layers.
+            ?small makes the cards small enough for hundreds to fit the
+            viewport, as a node that stays far outside it gets no layer.
+            ?top moves the list that far down the page.
             ?repaint animates the x and the colour of each card, so from
             six cards they repaint every frame and get no layer.
             ?radius gives each card a border radius that Motion corrects,
@@ -57,6 +73,8 @@
             const count = Number(params.get("count") || 3)
             const list = document.getElementById("list")
             params.has("grow") && list.classList.add("grow")
+            params.has("small") && list.classList.add("small")
+            list.style.marginTop = (params.get("top") || 0) + "px"
             for (let i = 0; i < count; i++) {
                 const card = document.createElement("div")
                 card.className = "card"

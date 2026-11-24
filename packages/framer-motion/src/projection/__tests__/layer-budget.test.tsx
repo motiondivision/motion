@@ -40,6 +40,7 @@ function Cards({
     still,
     style,
     opacity,
+    layoutScroll,
 }: {
     top?: number | string
     /** The card only moves, and the child keeps its place in it. */
@@ -47,6 +48,7 @@ function Cards({
     style?: Record<string, string | number>
     /** Animate opacity too, for this long. */
     opacity?: number
+    layoutScroll?: boolean
     count: number
     willChange?: string
     name?: string
@@ -70,6 +72,7 @@ function Cards({
                     data-moved={moved}
                     data-top={top}
                     data-plain={still}
+                    layoutScroll={layoutScroll}
                     animate={opacity ? { opacity: moved ? 0.5 : 1 } : undefined}
                     style={{ willChange, ...style }}
                 >
@@ -253,6 +256,62 @@ describe("layer budget", () => {
         await act(async () => toggles.second())
         await frames(10)
         expect(new Set(willChanges("second"))).toEqual(new Set(["transform"]))
+    })
+
+    test("nodes that stay far outside the viewport get no will-change and don't use the budget", async () => {
+        render(
+            <>
+                <Cards count={3} name="visible" />
+                <Cards count={199} name="hidden" top={5000} />
+            </>
+        )
+        await frames(2)
+        await act(async () => {
+            toggles.visible()
+            toggles.hidden()
+        })
+        await frames(10)
+        expect(new Set(willChanges("visible"))).toEqual(new Set(["transform"]))
+        expect(new Set(willChanges("hidden"))).toEqual(new Set([""]))
+    })
+
+    test("a few nodes far outside the viewport get no will-change", async () => {
+        render(<Cards count={3} name="hidden" top={5000} />)
+        await frames(2)
+        await act(async () => toggles.hidden())
+        await frames(10)
+        expect(new Set(willChanges("hidden"))).toEqual(new Set([""]))
+    })
+
+    test("a node with a transform of its own counts as in view", async () => {
+        render(
+            <Cards count={3} name="first" top="pulled" style={{ y: -5000 }} />
+        )
+        await frames(2)
+        await act(async () => toggles.first())
+        await frames(10)
+        expect(new Set(willChanges("first"))).toEqual(new Set(["transform"]))
+    })
+
+    test("a fixed node counts as in view on a scrolled page", async () => {
+        Object.defineProperty(document.documentElement, "scrollTop", {
+            value: 5000,
+            configurable: true,
+        })
+        render(
+            <Cards
+                count={3}
+                name="first"
+                layoutScroll
+                style={{ position: "fixed" }}
+            />
+        )
+        await frames(2)
+        await act(async () => toggles.first())
+        await frames(10)
+        delete (document.documentElement as any).scrollTop
+        const cards = document.querySelectorAll<HTMLElement>(".card")
+        for (const { style } of cards) expect(style.willChange).toBe("transform")
     })
 
     test("nodes that keep their place in a parent don't use the budget", async () => {
