@@ -2,7 +2,7 @@ import {
     getTypeCustom,
     resolveVariant,
 } from "../../render/utils/resolve-dynamic-variants"
-import { calcChildStagger } from "../utils/calc-child-stagger"
+import { calcChildStagger, getChildOrder } from "../utils/calc-child-stagger"
 import type { VisualElementAnimationOptions } from "./types"
 import { animateTarget } from "./visual-element-target"
 import type { VisualElement } from "../../render/VisualElement"
@@ -36,6 +36,15 @@ export function animateVariant(
         } = transition
         const animations: Promise<any>[] = []
 
+        /**
+         * The children's document order, sorted once for all of them, and
+         * only if a delay depends on it.
+         */
+        const order =
+            variantChildren &&
+            (typeof delayChildren === "function" || staggerChildren) &&
+            getChildOrder(variantChildren)
+
         variantChildren?.forEach((child) => {
             child.notify("AnimationStart", variant)
             animations.push(
@@ -51,7 +60,8 @@ export function animateVariant(
                             child,
                             delayChildren,
                             staggerChildren,
-                            staggerDirection
+                            staggerDirection,
+                            order || undefined
                         ),
                 }).then(() => child.notify("AnimationComplete", variant))
             )
