@@ -63,3 +63,50 @@ describe("addKeyframes", () => {
         ])
     })
 })
+
+describe("addKeyframes appending to a sequence", () => {
+    /**
+     * Reads of the sequence's keyframes, by index.
+     */
+    const counted = () => {
+        let reads = 0
+        const sequence = new Proxy([] as ValueSequence, {
+            get(target, key, receiver) {
+                typeof key === "string" && /^\d+$/.test(key) && reads++
+                return Reflect.get(target, key, receiver)
+            },
+        })
+        return { sequence, reads: () => reads }
+    }
+
+    test("doesn't scan earlier keyframes for a segment starting after them", () => {
+        const { sequence, reads } = counted()
+        for (let i = 0; i < 1000; i++) {
+            addKeyframes(
+                sequence,
+                [i, i + 1],
+                "linear",
+                [0, 1],
+                i * 10,
+                i * 10 + 10
+            )
+        }
+
+        expect(sequence.length).toBe(2000)
+        expect(reads()).toBeLessThan(100)
+    })
+
+    test("still erases keyframes a segment overlaps", () => {
+        const sequence: ValueSequence = []
+        addKeyframes(sequence, [0, 1], "linear", [0, 1], 0, 100)
+        addKeyframes(sequence, [1, 2], "linear", [0, 1], 100, 200)
+        addKeyframes(sequence, [5, 6], "linear", [0, 1], 50, 150)
+
+        expect(sequence.map(({ at, value }) => [at, value])).toEqual([
+            [0, 0],
+            [200, 2],
+            [50, 5],
+            [150, 6],
+        ])
+    })
+})
