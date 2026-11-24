@@ -247,7 +247,7 @@ const arePropsEqual = (prev: MotionProps, next: MotionProps) =>
     !next.layout &&
     next.layoutId === undefined &&
     !next.drag &&
-    isShallowEqual(prev, next, 1)
+    isShallowEqual(prev, next, isShallowEqual)
 
 function useLayoutId({ layoutId }: MotionProps) {
     const layoutGroupId = useContext(LayoutGroupContext).id
