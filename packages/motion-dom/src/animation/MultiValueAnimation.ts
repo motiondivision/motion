@@ -624,6 +624,22 @@ export class MultiValueAnimation
                 continue
             }
 
+            /**
+             * A value waiting out its delay holds its first keyframe. Once
+             * it's there, nothing changes until the delay ends, unless an
+             * onUpdate or a passive effect wants every frame.
+             */
+            if (
+                isInDelayPhase &&
+                !isFinished &&
+                (track.value as any).get?.() === options.keyframes[0] &&
+                !track.plan.transition.onUpdate &&
+                !(track.value as any).passiveEffect
+            ) {
+                numActive++
+                continue
+            }
+
             const state = generateTrack(track, t, isInDelayPhase)
             let { value } = state
             const done =
