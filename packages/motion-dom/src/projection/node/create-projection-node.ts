@@ -47,6 +47,8 @@ import {
 } from "../animation/layout-velocity"
 import {
     compositorLayers,
+    isRepainting,
+    markRepaint,
     transformGroups,
 } from "../../animation/waapi/transforms/groups"
 import { copyAxisDeltaInto, copyAxisInto, copyBoxInto } from "../geometry/copy"
@@ -105,36 +107,106 @@ import {
 const animationTarget = 1000
 
 /**
- * The most compositor layers Motion makes at once. The count is the
- * elements with a WAAPI animation (see compositorLayers), then the
- * projecting nodes, which each get a layer through will-change: transform
- * while they project. A layer is painted once and then only moved, where
- * a node without one repaints every frame. Each layer also costs the main
- * thread and the GPU a little, so the nodes past this move without one.
- * The nodes within it keep theirs, as dropping every layer at once is a
- * far bigger fall in framerate than the layers cost.
+ * The most compositor layers Motion makes at once. A node that starts to
+ * move in a layout animation gets a layer through will-change: transform
+ * while the layers there already are, the elements with a WAAPI animation
+ * (see compositorLayers) and the nodes that start with it fit this budget.
+ * A layer is painted once and then only moved, where a node without one
+ * repaints every frame. Each layer also costs the main thread and the GPU a
+ * little, so past this the nodes that start move without one.
  *
- * The deepest nodes are within it first. A layer repaints when a child
- * without one moves inside it, which costs more than no layer at all.
+ * A node keeps what it starts with until it stops, as adding or removing
+ * layers mid-animation costs a frame. A node whose animation stays far
+ * outside the viewport never gets a layer, and doesn't use the budget.
  *
  * It's will-change rather than translate3d as Chrome paints a translate3d
  * layer again whenever its sub-pixel offset changes, and every node rather
  * than only parents as a layer repaints when a child moves inside it.
  */
-const layerBudget = 250
+const layerBudget = 400
 
 let layers = 0
-const countLayer = (node: IProjectionNode) => {
-    node.isProjecting() && layers++
+const starting: IProjectionNode[] = []
+
+/**
+ * A scale-corrected value, like borderRadius or boxShadow, changes on every
+ * frame that the node's scale does. The node repaints on each of those
+ * frames, so a layer would only add its cost.
+ */
+const isCorrecting = (node: IProjectionNode) => {
+    const { projectionDelta, treeScale } = node
+    if (
+        projectionDelta!.x.scale * treeScale!.x !== 1 ||
+        projectionDelta!.y.scale * treeScale!.y !== 1
+    ) {
+        const values = node.animationValues || node.latestValues
+        for (const key in scaleCorrectors) {
+            if (values[key] !== undefined) return true
+        }
+    }
 }
 
 /**
- * Nodes are visited shallowest first, so a node has a layer once the
- * layers still to be given, its own included, fit the budget.
+ * Whether a node repaints on every frame, for a corrected value or for
+ * another style that animates on it (see repaintLimit).
  */
-const giveLayer = (node: IProjectionNode) => {
-    node.hasLayer = node.isProjecting() && layers-- <= layerBudget
+const repaints = (node: IProjectionNode) =>
+    isCorrecting(node) || isRepainting(node.instance as object)
+
+/**
+ * A layoutRoot always projects, so a node moves while it has a target. One
+ * that keeps its place in its parent has no transform to write, so it
+ * doesn't start until it has one.
+ */
+const countLayer = (node: IProjectionNode) => {
+    const { projectionDelta, treeScale } = node
+    if (!((node.relativeTarget || node.targetDelta) && node.layout)) {
+        node.hasLayer = undefined
+    } else if (node.hasLayer) {
+        repaints(node) ? (node.hasLayer = false) : layers++
+    } else if (
+        node.hasLayer === undefined &&
+        projectionDelta &&
+        (!isDeltaZero(projectionDelta) ||
+            treeScale!.x !== 1 ||
+            treeScale!.y !== 1)
+    ) {
+        repaints(node) ? (node.hasLayer = false) : starting.push(node)
+    }
 }
+
+/**
+ * Whether a node's boxes aren't where the page draws it: in a scrolling
+ * or fixed element, or moved by a transform.
+ */
+const hasOwnSpace = (node: IProjectionNode) =>
+    !!(
+        node.scroll?.wasRoot ||
+        node.options.layoutScroll ||
+        hasTransform(node.latestValues)
+    )
+
+/**
+ * Whether the boxes a node moves between, its target as it starts and its
+ * layout, come within a viewport of the viewport. A node with boxes the
+ * page doesn't draw as they are counts as in view.
+ */
+const isAxisInView = (from: Axis, to: Axis, scroll: number, size: number) =>
+    Math.max(from.max, to.max) > scroll - size &&
+    Math.min(from.min, to.min) < scroll + size * 2
+
+const isInView = (
+    node: IProjectionNode,
+    x: number,
+    y: number,
+    width: number,
+    height: number
+) =>
+    !node.target ||
+    hasOwnSpace(node) ||
+    node.path.some((ancestor, i) => !!i && hasOwnSpace(ancestor)) ||
+    (isAxisInView(node.target.x, node.layout!.layoutBox.x, x, width) &&
+        isAxisInView(node.target.y, node.layout!.layoutBox.y, y, height))
 
 let id = 0
 
@@ -1047,6 +1119,12 @@ export function createProjectionNode<I>({
         projectionUpdateScheduled = false
 
         declare hasLayer?: boolean
+
+        /**
+         * Whether this node's will-change is the one it wrote for its
+         * layer. Kept apart from `written`, which other writes clear.
+         */
+        declare wroteLayer?: boolean
         scheduleUpdateProjection() {
             if (!this.projectionUpdateScheduled) {
                 this.projectionUpdateScheduled = true
@@ -1089,9 +1167,29 @@ export function createProjectionNode<I>({
             this.nodes!.forEach(calcProjection)
             this.nodes!.forEach(cleanDirtyNodes)
 
+            /**
+             * Give the nodes that start to move a layer each, if they fit
+             * the layer budget.
+             */
             layers = compositorLayers
             this.nodes!.forEach(countLayer)
-            this.nodes!.forEach(giveLayer)
+            if (starting.length) {
+                const { x, y } = this.scroll?.offset || { x: 0, y: 0 }
+                const { innerWidth, innerHeight } = window
+                const inView = starting.filter(
+                    (node) =>
+                        (node.hasLayer = isInView(
+                            node,
+                            x,
+                            y,
+                            innerWidth,
+                            innerHeight
+                        ))
+                )
+                layers + inView.length > layerBudget &&
+                    inView.forEach((node) => (node.hasLayer = false))
+                starting.length = 0
+            }
 
             /**
              * Record this frame's debug counts, if recordStats() is running.
@@ -2538,27 +2636,33 @@ export function createProjectionNode<I>({
             const lead = this.getLead()
 
             /**
+             * Give this element a layer while it has a projection
+             * transform (see layerBudget), and take it away after. An
+             * element with a will-change of its own keeps that.
+             */
+            const setLayer = (isLayer?: boolean) => {
+                if (
+                    (isLayer || this.wroteLayer) &&
+                    !styleProp?.willChange &&
+                    !this.latestValues.willChange
+                ) {
+                    this.wroteLayer = isLayer
+                    write("willChange", isLayer ? "transform" : "")
+                }
+            }
+
+            /**
              * Without crossfade, a new lead hides the previous one, as it's
              * usually unmounting. One that gave its layoutId away keeps
              * rendering, so only hide nodes that follow another.
              */
             if (!this.isVisible && lead !== this) {
                 write("visibility", "hidden")
+                setLayer()
                 return
             }
 
             const transformTemplate = this.getTransformTemplate()
-
-            /**
-             * Give this element a layer while it has a projection
-             * transform (see layerBudget), and take it away after. An
-             * element with a will-change of its own keeps that.
-             */
-            const setLayer = (isLayer?: boolean) =>
-                (isLayer || written.willChange) &&
-                !styleProp?.willChange &&
-                !this.latestValues.willChange &&
-                write("willChange", isLayer ? "transform" : "")
 
             if (this.needsReset) {
                 this.needsReset = false
@@ -2662,6 +2766,14 @@ export function createProjectionNode<I>({
                     ? valuesToRender.opacityExit
                     : 0
             )
+
+            /**
+             * Corrected values that change repaint this element, so it
+             * counts towards the elements that repaint (see repaintLimit).
+             */
+            transform !== "none" &&
+                isCorrecting(this) &&
+                markRepaint(this.instance as object)
 
             /**
              * Apply scale correction

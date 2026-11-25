@@ -149,8 +149,8 @@ export interface IProjectionNode<I = unknown> {
 
     isProjecting(): boolean
     /**
-     * Whether this node is within this frame's layer budget, so moves as
-     * a compositor layer.
+     * Whether this node moves as a compositor layer, decided when it
+     * starts to move in a layout animation. Undefined when it isn't moving.
      */
     hasLayer?: boolean
     animationValues?: ResolvedValues

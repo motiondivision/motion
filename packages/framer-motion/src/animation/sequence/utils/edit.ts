@@ -30,15 +30,30 @@ export function addKeyframes(
     /**
      * Erase every existing value between currentTime and targetTime,
      * this will essentially splice this timeline into any currently
-     * defined ones.
+     * defined ones. A segment that starts at or after every value already
+     * written, as one appended to the end does, has nothing to erase.
      */
-    eraseKeyframes(sequence, startTime, endTime)
+    let latest = latestKeyframes.get(sequence)
+    if (latest === undefined) {
+        latest = -Infinity
+        for (const { at } of sequence) if (at > latest) latest = at
+    }
+    latest > startTime && eraseKeyframes(sequence, startTime, endTime)
 
     for (let i = 0; i < keyframes.length; i++) {
+        const at = mixNumber(startTime, endTime, offset[i])
+        if (at > latest) latest = at
         sequence.push({
             value: keyframes[i],
-            at: mixNumber(startTime, endTime, offset[i]),
+            at,
             easing: getEasingForSegment(easing, i),
         })
     }
+
+    latestKeyframes.set(sequence, latest)
 }
+
+/**
+ * The latest time a keyframe was written at in each sequence.
+ */
+const latestKeyframes = new WeakMap<ValueSequence, number>()

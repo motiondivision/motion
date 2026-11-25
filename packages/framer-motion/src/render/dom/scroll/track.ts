@@ -7,7 +7,11 @@ import { OnScrollHandler, OnScrollInfo, ScrollInfoOptions } from "./types"
 const scrollListeners = new WeakMap<Element, VoidFunction>()
 const resizeListeners = new WeakMap<Element, VoidFunction>()
 const onScrollHandlers = new WeakMap<Element, Set<OnScrollHandler>>()
-const dimensionCheckProcesses = new WeakMap<Element, Process>()
+/**
+ * Each container's frame read of its scroll size, with how many of its
+ * subscribers asked for it, so it stops when the last of them does.
+ */
+const dimensionCheckProcesses = new WeakMap<Element, [Process, number]>()
 
 export type ScrollTargets = Array<HTMLElement>
 
@@ -88,7 +92,10 @@ export function scrollInfo(
     /**
      * Enable content size tracking if requested and not already enabled.
      */
-    if (trackContentSize && !dimensionCheckProcesses.has(container)) {
+    const dimensionCheck =
+        trackContentSize && dimensionCheckProcesses.get(container)
+    if (dimensionCheck) dimensionCheck[1]++
+    if (trackContentSize && !dimensionCheck) {
         const listener = scrollListeners.get(container)!
 
         // Store initial scroll dimensions (object is reused to avoid allocation)
@@ -110,8 +117,10 @@ export function scrollInfo(
         }
 
         // Schedule with keepAlive=true to run every frame
-        const dimensionCheckProcess = frame.read(checkScrollDimensions, true)
-        dimensionCheckProcesses.set(container, dimensionCheckProcess)
+        dimensionCheckProcesses.set(container, [
+            frame.read(checkScrollDimensions, true),
+            1,
+        ])
     }
 
     const listener = scrollListeners.get(container)!
@@ -127,6 +136,16 @@ export function scrollInfo(
         if (!currentHandlers) return
 
         currentHandlers.delete(containerHandler)
+
+        /**
+         * The last subscriber tracking content size stops the frame read,
+         * even while others still listen to scroll.
+         */
+        const check = trackContentSize && dimensionCheckProcesses.get(container)
+        if (check && !--check[1]) {
+            cancelFrame(check[0])
+            dimensionCheckProcesses.delete(container)
+        }
 
         if (currentHandlers.size) return
 
@@ -146,13 +165,6 @@ export function scrollInfo(
             )
             resizeListeners.get(container)?.()
             window.removeEventListener("resize", scrollListener)
-        }
-
-        // Clean up scroll dimension checking
-        const dimensionCheckProcess = dimensionCheckProcesses.get(container)
-        if (dimensionCheckProcess) {
-            cancelFrame(dimensionCheckProcess)
-            dimensionCheckProcesses.delete(container)
         }
     }
 }
