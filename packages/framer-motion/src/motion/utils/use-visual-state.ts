@@ -18,7 +18,6 @@ import { ScrapeMotionValuesFromProps } from "../../render/types"
 import { useConstant } from "../../utils/use-constant"
 import { resolveMotionValue } from "motion-dom"
 import { MotionProps } from "../types"
-import { mountOpacity } from "./mount-opacity"
 
 export interface VisualState<Instance, _RenderState = any> {
     latestValues: ResolvedValues
@@ -89,7 +88,6 @@ function makeLatestValues(
     isInitialAnimationBlocked = isInitialAnimationBlocked || initial === false
 
     const variantToSet = isInitialAnimationBlocked ? animate : initial
-    let opacityFromVariant = false
 
     if (
         variantToSet &&
@@ -116,28 +114,30 @@ function makeLatestValues(
                     }
 
                     if (valueTarget !== null) {
-                        values[key] = valueTarget as AnyResolvedKeyframe
-                        if (key === "opacity") opacityFromVariant = true
+                        /**
+                         * Opacity 0 renders as 0.001 on the server and at the
+                         * first mount. Browsers don't count content at
+                         * opacity 0 as painted, and a compositor opacity
+                         * animation never repaints it on the main thread, so
+                         * FCP and LCP would wait for the animation's end. A
+                         * motion value given in style keeps its own value.
+                         */
+                        values[key] = (
+                            key === "opacity" &&
+                            valueTarget === 0 &&
+                            !motionValues.opacity
+                                ? 0.001
+                                : valueTarget
+                        ) as AnyResolvedKeyframe
                     }
                 }
                 for (const key in transitionEnd) {
                     values[key] = transitionEnd[
                         key as keyof typeof transitionEnd
                     ] as AnyResolvedKeyframe
-                    if (key === "opacity") opacityFromVariant = true
                 }
             }
         }
-    }
-
-    /**
-     * Opacity 0 from `initial` (or `animate`, when the initial animation is
-     * blocked) renders as 0.001, on the server and at the first mount. A
-     * value the component was given in `style` keeps its own value. See
-     * mount-opacity.ts for why.
-     */
-    if (opacityFromVariant && values.opacity === 0) {
-        values.opacity = mountOpacity
     }
 
     return values

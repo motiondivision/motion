@@ -1469,7 +1469,7 @@ describe("animate prop as object", () => {
 
         // After remount, values should be reset to initial (not stuck at
         // intermediate animation values)
-        expect(opacityChanges[0]).toBe(0.001)
+        expect(opacityChanges[0]).toBe(0)
         expect(scaleChanges[0]).toBe(0)
     })
 

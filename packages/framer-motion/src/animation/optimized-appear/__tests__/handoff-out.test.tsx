@@ -45,7 +45,7 @@ describe("optimised appear handoff with transition.out", () => {
         // The handoff call itself is unchanged
         expect(handoff).toHaveBeenCalledWith("a", "opacity", expect.anything())
         expect(handoff.mock.calls[0]).toHaveLength(3)
-        expect(opacity.get()).toBe(0.001)
+        expect(opacity.get()).toBe(0)
     })
 
     test("continues with animate's transition when initial has no out", async () => {

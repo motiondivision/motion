@@ -37,7 +37,6 @@ import { PanGesture } from "./gestures/pan"
 import { animations } from "./motion/features/animations"
 import { gestureAnimations } from "./motion/features/gestures"
 import { loadFeatures } from "./motion/features/load-features"
-import { mountOpacity } from "./motion/utils/mount-opacity"
 import { isValidMotionProp } from "./motion/utils/valid-prop"
 import { lowercaseSVGElements } from "./render/svg/lowercase-elements"
 import { createReorder } from "./remix-reorder"
@@ -470,7 +469,6 @@ function makeLatestValues(
     const isBlocked = isInitialBlocked || initial === false
     const toSet = isBlocked ? animate : initial
     if (!toSet || typeof toSet === "boolean") return values
-    let opacityFromVariant = false
 
     for (const definition of Array.isArray(toSet) ? toSet : [toSet]) {
         const resolved = resolveVariantFromProps(props as any, definition)
@@ -482,23 +480,14 @@ function makeLatestValues(
             if (Array.isArray(value)) {
                 value = value[isBlocked ? value.length - 1 : 0]
             }
-            if (value !== null) {
-                values[key] = value
-                if (key === "opacity") opacityFromVariant = true
-            }
+            // Opacity 0 renders as 0.001, as in React (use-visual-state.ts)
+            if (value !== null)
+                values[key] =
+                    key === "opacity" && value === 0 && !motionValues.opacity
+                        ? 0.001
+                        : value
         }
-        if (transitionEnd) {
-            Object.assign(values, transitionEnd)
-            if ("opacity" in transitionEnd) opacityFromVariant = true
-        }
-    }
-
-    /**
-     * Opacity 0 from `initial` (or `animate`, when the initial animation is
-     * blocked) renders as 0.001, as in React. See mount-opacity.ts.
-     */
-    if (opacityFromVariant && values.opacity === 0) {
-        values.opacity = mountOpacity
+        Object.assign(values, transitionEnd)
     }
 
     return values

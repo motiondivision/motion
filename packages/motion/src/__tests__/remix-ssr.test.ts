@@ -66,7 +66,7 @@ describe("motion/remix on the server", () => {
         const html = await renderToString(createElement(List, {}))
 
         expect(html).toBe(
-            '<ul id="list"><li style="opacity: 0; transform: translateY(10px);">a</li></ul>'
+            '<ul id="list"><li style="opacity: 0.001; transform: translateY(10px);">a</li></ul>'
         )
     })
 

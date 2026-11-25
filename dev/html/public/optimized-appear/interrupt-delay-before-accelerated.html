@@ -47,9 +47,9 @@
                  * On animation start, check the values we expect to see here
                  */
                 onAnimationStart: () => {
-                    matchOpacity(document.getElementById("box"), 0)
+                    matchOpacity(document.getElementById("box"), 0.001)
                     requestAnimationFrame(() => {
-                        matchOpacity(document.getElementById("box"), 0)
+                        matchOpacity(document.getElementById("box"), 0.001)
                     })
                 },
                 [optimizedAppearDataAttribute]: "a",
@@ -61,7 +61,8 @@
             startOptimizedAppearAnimation(
                 document.getElementById("box"),
                 "opacity",
-                [0, 1],
+                // From the server-rendered opacity
+                [0.001, 1],
                 {
                     duration: duration * 1000,
                     ease: "linear",
@@ -74,7 +75,7 @@
 
                         const { opacity: initialOpacity } =
                             window.getComputedStyle(box)
-                        if (initialOpacity !== "0") {
+                        if (initialOpacity !== "0.001") {
                             showError(box, `opacity should have animated`)
                         }
                     }, 300)
