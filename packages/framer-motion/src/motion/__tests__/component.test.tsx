@@ -215,7 +215,7 @@ describe("motion component rendering and styles", () => {
                 <motion.div variants={childVariants} data-testid="child" />
             </motion.div>
         )
-        expect(getByTestId("child")).toHaveStyle("opacity: 0; color: #f00")
+        expect(getByTestId("child")).toHaveStyle("opacity: 0.001; color: #f00")
     })
 
     it("generates style attribute for nested children if passed initial as variant label", () => {
@@ -233,7 +233,7 @@ describe("motion component rendering and styles", () => {
             </motion.div>
         )
         expect(getByTestId("nestedchild")).toHaveStyle(
-            "opacity: 0; color: #f00"
+            "opacity: 0.001; color: #f00"
         )
     })
 

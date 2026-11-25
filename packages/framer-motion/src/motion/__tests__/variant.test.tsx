@@ -251,7 +251,7 @@ describe("animate prop as variant", () => {
             requestAnimationFrame(() => resolve(getByTestId("test")))
         })
 
-        return expect(promise).resolves.toHaveStyle("opacity: 0")
+        return expect(promise).resolves.toHaveStyle("opacity: 0.001")
     })
 
     test("delay propagates throughout children", async () => {
@@ -293,7 +293,7 @@ describe("animate prop as variant", () => {
             setTimeout(() => resolve(opacity.get()), 300)
         })
 
-        return expect(promise).resolves.toBe(0)
+        return expect(promise).resolves.toBe(0.001)
     })
 
     test("propagates through components with no `animate` prop", async () => {
@@ -455,7 +455,7 @@ describe("animate prop as variant", () => {
         )
 
         await stepFrames(50)
-        expect(parentOpacity.get()).toBe(0)
+        expect(parentOpacity.get()).toBe(0.001)
         expect(childOpacity.get()).not.toBe(0)
 
         await stepFrames(500)
@@ -621,7 +621,7 @@ describe("animate prop as variant", () => {
                 useEffect(
                     () =>
                         a.on("change", (latest) => {
-                            if (latest >= 1) resolve(b.get() === 0)
+                            if (latest >= 1) resolve(b.get() === 0.001)
                         }),
                     [a, b]
                 )
@@ -676,7 +676,7 @@ describe("animate prop as variant", () => {
                 useEffect(
                     () =>
                         a.on("change", (latest) => {
-                            if (latest >= 1) resolve(b.get() === 0)
+                            if (latest >= 1) resolve(b.get() === 0.001)
                         }),
                     [a, b]
                 )
@@ -728,7 +728,7 @@ describe("animate prop as variant", () => {
                 useEffect(
                     () =>
                         a.on("change", (latest) => {
-                            if (latest >= 1) resolve(b.get() === 0)
+                            if (latest >= 1) resolve(b.get() === 0.001)
                         }),
                     [a, b]
                 )
@@ -783,7 +783,7 @@ describe("animate prop as variant", () => {
                 useEffect(
                     () =>
                         a.on("change", (latest) => {
-                            if (latest >= 1) resolve(b.get() === 0)
+                            if (latest >= 1) resolve(b.get() === 0.001)
                         }),
                     [a, b]
                 )
