@@ -18,6 +18,7 @@ import { ScrapeMotionValuesFromProps } from "../../render/types"
 import { useConstant } from "../../utils/use-constant"
 import { resolveMotionValue } from "motion-dom"
 import { MotionProps } from "../types"
+import { mountOpacity } from "./mount-opacity"
 
 export interface VisualState<Instance, _RenderState = any> {
     latestValues: ResolvedValues
@@ -132,12 +133,8 @@ function makeLatestValues(
     /**
      * Opacity 0 from `initial` (or `animate`, when the initial animation is
      * blocked) renders as 0.001, on the server and at the first mount. A
-     * value the component was given in `style` keeps its own value.
-     * Browsers don't count content at opacity 0 as painted, and an opacity
-     * animation that runs on the compositor never repaints it on the main
-     * thread, so first contentful paint and largest contentful paint would
-     * only be recorded once the animation ends. 0.001 looks the same but
-     * counts as painted.
+     * value the component was given in `style` keeps its own value. See
+     * mount-opacity.ts for why.
      */
     if (opacityFromVariant && values.opacity === 0) {
         values.opacity = mountOpacity
@@ -145,13 +142,6 @@ function makeLatestValues(
 
     return values
 }
-
-/**
- * The opacity rendered in place of 0 on the server and at the first mount:
- * low enough to look hidden, high enough for the browser to count the
- * content as painted.
- */
-export const mountOpacity = 0.001
 
 export const makeUseVisualState =
     <I, RS>(config: UseVisualStateConfig<RS>): UseVisualState<I, RS> =>
