@@ -232,7 +232,7 @@ describe("motion/remix", () => {
         await wait(20)
         const items = container.querySelectorAll("li")
         // The second item is still waiting for its stagger delay.
-        expect((items[1] as HTMLElement).style.opacity).toBe("0")
+        expect((items[1] as HTMLElement).style.opacity).toBe("0.001")
 
         /**
          * Wait for completion rather than a fixed timer, which races the

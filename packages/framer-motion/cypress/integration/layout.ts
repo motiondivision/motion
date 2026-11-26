@@ -183,9 +183,12 @@ describe("Layout animation", () => {
             .get("#child")
             .should(([$child]: any) => {
                 // Wait for the entry animation to start. Before its first
-                // frame opacity is still 0, so exiting to opacity 0 has
-                // nothing to animate and the child is removed immediately.
-                expect(getComputedStyle($child).opacity).to.equal("0.5")
+                // frame opacity is still at its initial 0.001, so exiting
+                // to opacity 0 has almost nothing to animate. Halfway from
+                // 0.001 to 1 is 0.5005.
+                expect(
+                    parseFloat(getComputedStyle($child).opacity)
+                ).to.be.closeTo(0.5, 0.001)
                 initialBbox = $child.getBoundingClientRect()
             })
             .get("button")

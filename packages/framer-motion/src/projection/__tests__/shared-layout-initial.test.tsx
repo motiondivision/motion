@@ -54,7 +54,7 @@ describe("layoutId takeover and initial (#2362)", () => {
     test("first mount runs its initial animation", async () => {
         render(<Tabs active={0} />)
 
-        expect(document.getElementById("underline-0")!.style.opacity).toBe("0")
+        expect(document.getElementById("underline-0")!.style.opacity).toBe("0.001")
 
         await settle()
         expect(opacityOf("underline-0")).toBeGreaterThan(0)
@@ -94,7 +94,7 @@ describe("layoutId takeover and initial (#2362)", () => {
 
         rerender(<Tabs active={1} />)
 
-        expect(document.getElementById("underline-1")!.style.opacity).toBe("0")
+        expect(document.getElementById("underline-1")!.style.opacity).toBe("0.001")
 
         await settle()
         expect(opacityOf("underline-1")).toBeGreaterThan(0)

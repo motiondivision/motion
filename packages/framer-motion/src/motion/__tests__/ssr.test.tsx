@@ -389,6 +389,57 @@ function runTests(render: (components: any) => string) {
 
         expect(string).toBe("<div>5</div>")
     })
+
+    test("renders opacity 0 from initial as 0.001", () => {
+        const string = render(
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} />
+        )
+
+        expect(string).toBe(`<div style="opacity:0.001"></div>`)
+    })
+
+    test("renders opacity 0 from an initial variant as 0.001", () => {
+        const string = render(
+            <motion.div
+                initial="hidden"
+                animate="visible"
+                variants={{
+                    hidden: { opacity: 0 },
+                    visible: { opacity: 1 },
+                }}
+            />
+        )
+
+        expect(string).toBe(`<div style="opacity:0.001"></div>`)
+    })
+
+    test("keeps opacity 0 from style", () => {
+        const string = render(<motion.div style={{ opacity: 0 }} />)
+
+        expect(string).toBe(`<div style="opacity:0"></div>`)
+    })
+
+    test("keeps opacity 0 from initial when style has a motion value", () => {
+        function Component() {
+            const opacity = useMotionValue(0)
+            return (
+                <motion.div
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    style={{ opacity }}
+                />
+            )
+        }
+        const string = render(<Component />)
+
+        expect(string).toBe(`<div style="opacity:0"></div>`)
+    })
+
+    test("keeps non-zero opacity from initial", () => {
+        const string = render(<motion.div initial={{ opacity: 0.5 }} />)
+
+        expect(string).toBe(`<div style="opacity:0.5"></div>`)
+    })
 }
 
 describe("render", () => {

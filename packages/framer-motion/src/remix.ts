@@ -480,7 +480,12 @@ function makeLatestValues(
             if (Array.isArray(value)) {
                 value = value[isBlocked ? value.length - 1 : 0]
             }
-            if (value !== null) values[key] = value
+            // Opacity 0 renders as 0.001, as in React (use-visual-state.ts)
+            if (value !== null)
+                values[key] =
+                    key === "opacity" && value === 0 && !motionValues.opacity
+                        ? 0.001
+                        : value
         }
         Object.assign(values, transitionEnd)
     }

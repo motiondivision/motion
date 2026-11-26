@@ -147,8 +147,8 @@ describe("isStatic prop", () => {
         )
         rerender(<Component initial="hidden" />)
 
-        expect(getByTestId("parent")).toHaveStyle("opacity: 0")
-        expect(getByTestId("child")).toHaveStyle("opacity: 0")
+        expect(getByTestId("parent")).toHaveStyle("opacity: 0.001")
+        expect(getByTestId("child")).toHaveStyle("opacity: 0.001")
     })
 
     test("it prevents rendering of children via context", async () => {
