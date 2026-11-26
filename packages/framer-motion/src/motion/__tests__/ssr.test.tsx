@@ -435,6 +435,24 @@ function runTests(render: (components: any) => string) {
         expect(string).toBe(`<div style="opacity:0"></div>`)
     })
 
+    test("keeps opacity 0 from animate when initial is false", () => {
+        const string = render(
+            <motion.div initial={false} animate={{ opacity: 0 }} />
+        )
+
+        expect(string).toBe(`<div style="opacity:0"></div>`)
+    })
+
+    test("keeps opacity 0 from animate when AnimatePresence initial is false", () => {
+        const string = render(
+            <AnimatePresence initial={false}>
+                <motion.div animate={{ opacity: 0 }} />
+            </AnimatePresence>
+        )
+
+        expect(string).toBe(`<div style="opacity:0"></div>`)
+    })
+
     test("keeps non-zero opacity from initial", () => {
         const string = render(<motion.div initial={{ opacity: 0.5 }} />)
 

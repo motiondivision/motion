@@ -121,10 +121,14 @@ function makeLatestValues(
                          * animation never repaints it on the main thread, so
                          * FCP and LCP would wait for the animation's end. A
                          * motion value given in style keeps its own value.
+                         * A blocked initial animation keeps 0, as that is the
+                         * value it rests at, and Chrome rasters content at
+                         * 0.001 but not at 0.
                          */
                         values[key] = (
                             key === "opacity" &&
                             valueTarget === 0 &&
+                            !isInitialAnimationBlocked &&
                             !motionValues.opacity
                                 ? 0.001
                                 : valueTarget

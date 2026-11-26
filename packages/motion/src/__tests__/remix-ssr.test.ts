@@ -39,6 +39,29 @@ describe("motion/remix on the server", () => {
         expect(html).toBe('<div style="opacity: 1;"></div>')
     })
 
+    it("keeps opacity 0 from animate with initial: false", async () => {
+        const html = await render({ initial: false, animate: { opacity: 0 } })
+
+        expect(html).toBe('<div style="opacity: 0;"></div>')
+    })
+
+    it("keeps opacity 0 from animate inside AnimatePresence initial={false}", async () => {
+        function App() {
+            return () =>
+                createElement(
+                    AnimatePresence,
+                    { initial: false },
+                    createElement(motion.div, {
+                        initial: { opacity: 1 },
+                        animate: { opacity: 0 },
+                    })
+                )
+        }
+        const html = await renderToString(createElement(App, {}))
+
+        expect(html).toBe('<div style="opacity: 0;"></div>')
+    })
+
     it("renders layout attributes", async () => {
         const html = await render({ layout: "position", layoutId: "tab" })
 
