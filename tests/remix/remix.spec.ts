@@ -403,11 +403,12 @@ test.describe("regressions", () => {
         page,
     }) => {
         await open(page, "regressions")
-        expect(await opacity(page, "#variant-child")).toBe(0.001)
+        // initial={false}, so it rests at 0, not the 0.001 of an enter animation
+        expect(await opacity(page, "#variant-child")).toBe(0)
         // Opening has a 0.5s delay, so the child hasn't started at 0.3s.
         await call(page, "toggleVariant")
         await page.waitForTimeout(300)
-        expect(await opacity(page, "#variant-child")).toBe(0.001)
+        expect(await opacity(page, "#variant-child")).toBe(0)
         await page.waitForTimeout(1500)
         expect(await opacity(page, "#variant-child")).toBe(1)
         // Closing has no delay.

@@ -483,7 +483,10 @@ function makeLatestValues(
             // Opacity 0 renders as 0.001, as in React (use-visual-state.ts)
             if (value !== null)
                 values[key] =
-                    key === "opacity" && value === 0 && !motionValues.opacity
+                    key === "opacity" &&
+                    value === 0 &&
+                    !isBlocked &&
+                    !motionValues.opacity
                         ? 0.001
                         : value
         }
